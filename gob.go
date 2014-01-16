@@ -11,6 +11,7 @@ import (
 )
 
 var (
+	goCmd     *exec.Cmd
 	goPath    string
 	goSrcPath string
 	path      string
@@ -55,7 +56,6 @@ func IsValidSrc() bool {
 // Build the application in a separate process
 // and pipe the output to the terminal
 func StartApp() {
-	var goCmd *exec.Cmd
 	goCmd = exec.Command("go", "run", path)
 
 	goCmd.Stdout = os.Stdout
