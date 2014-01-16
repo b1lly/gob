@@ -24,5 +24,6 @@ the existing process and starts up a new one.
     gob $GOPATH/src/to/myApp.go
     (e.g. gob $GOPATH/src/github.com/b1lly/gob/test/test.go)
 
-This would build and run the `$GOPATH/src/*` for any change and rebuild/run
-when a modification event is received.
+This would build and run the program and listen to `$GOPATH/src/*` 
+for any change. It then rebuilds and runs the program if a modification 
+event is received.
