@@ -14,8 +14,7 @@ func main() {
 		time.Sleep(3 * time.Second)
 
 		if connection := rand.Intn(10); connection > 5 {
-			fmt.Println("Handling a network good...")
-			fmt.Println("Sending data.html to wire...")
+			fmt.Println("Sample application...")
 		}
 	}
 }

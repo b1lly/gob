@@ -11,77 +11,111 @@ import (
 )
 
 var (
-	goCmd     *exec.Cmd
-	goPath    string
-	goSrcPath string
-	path      string
-	packages  []string
+	app    *exec.Cmd
+	dir    string
+	file   string
+	binary string
+	path   string
+
+	GO_DIR     string = os.Getenv("GOPATH")
+	GO_SRC_DIR string = GO_DIR + "/src/"
+	BUILD_DIR  string = GO_DIR + "/gob/build"
 )
 
 func main() {
-	if !IsValidSrc() {
+	if !isValidSrc() {
 		return
 	}
 
-	// Run go build in separate process and pipe output to terminal
-	StartApp()
+	gobPrint("initializing program...")
 
-	// For now, just listen for any changes from root
-	goPath = os.Getenv("GOPATH")
-	goSrcPath = goPath + "/src/"
-	WatchForUpdate()
+	setup()
+	build()
+	run()
+	watch()
+}
+
+func gobPrint(msg string) {
+	fmt.Println("[gob] " + msg)
 }
 
 // Simple argument validation
 // to short circuit compilation errors
-func IsValidSrc() bool {
+func isValidSrc() bool {
 	// Make sure the user provided enough args to cmd line
 	if len(os.Args) < 2 {
-		fmt.Println("[gob] Please provide a valid source file to run.")
+		gobPrint("Please provide a valid source file to run.")
 		return false
 	}
 
 	path = os.Args[1]
+	dir, file = filepath.Split(path)
+	ext := filepath.Ext(file)
+	binary = BUILD_DIR + "/" + file[0:len(file)-len(ext)]
 
 	// Make sure the file we're trying to build exists
 	_, err := os.Stat(path)
 	if os.IsNotExist(err) || filepath.Ext(path) != ".go" {
-		fmt.Println("[gob] Please provide a valid source file to run.")
+		gobPrint("Please provide a valid source file to run.")
 		return false
 	}
 
 	return true
 }
 
+func setup() {
+	_, err := os.Stat(BUILD_DIR)
+	if os.IsNotExist(err) {
+		gobPrint("creating temporary build directory... " + BUILD_DIR)
+		os.MkdirAll(BUILD_DIR, 0777)
+	}
+}
+
 // Build the application in a separate process
 // and pipe the output to the terminal
-func StartApp() {
-	goCmd = exec.Command("go", "run", path)
+func build() {
+	cmd := exec.Command("go", "build", "-o", binary, path)
 
-	goCmd.Stdout = os.Stdout
-	goCmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 
-	fmt.Println("[gob] building src... " + path)
-	if err := goCmd.Start(); err != nil {
+	gobPrint("building src... " + path)
+	if err := cmd.Run(); err != nil {
 		log.Fatal(err)
 	}
 }
 
+// Run our program binary
+func run() {
+	cmd := exec.Command(binary)
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	gobPrint("starting application...")
+	if err := cmd.Start(); err != nil {
+		log.Fatal(err)
+	}
+
+	app = cmd
+}
+
 // Watch the filesystem for any changes
 // and restart the application if detected
-func WatchForUpdate() {
+func watch() {
 	skipNoFile := func(path string) bool {
 		return false
 	}
 
-	appWatcher := fswatch.NewFolderWatcher(goSrcPath, true, skipNoFile).Start()
+	appWatcher := fswatch.NewFolderWatcher(GO_SRC_DIR, true, skipNoFile).Start()
 
 	for appWatcher.IsRunning() {
 		select {
 		case <-appWatcher.Change:
 			fmt.Println("[gob] restarting application...")
-			goCmd.Process.Kill()
-			StartApp()
+			app.Process.Kill()
+			build()
+			run()
 		}
 	}
 }
