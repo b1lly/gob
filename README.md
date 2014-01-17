@@ -17,8 +17,7 @@ the existing process and starts up a new one.
 ### Installation
 
     go get github.com/b1lly/gob
-    go install $GOPATH/src/github.com/b1lly/gob
-
+    
 ### Usage
 
     gob $GOPATH/src/to/myApp.go
