@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -30,8 +29,10 @@ func main() {
 	gobPrint("initializing program...")
 
 	setup()
-	build()
-	run()
+	build := build()
+	if build {
+		run()
+	}
 	watch()
 }
 
@@ -73,7 +74,7 @@ func setup() {
 
 // Build the application in a separate process
 // and pipe the output to the terminal
-func build() {
+func build() bool {
 	cmd := exec.Command("go", "build", "-o", binary, path)
 
 	cmd.Stdout = os.Stdout
@@ -81,8 +82,12 @@ func build() {
 
 	gobPrint("building src... " + path)
 	if err := cmd.Run(); err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
+		cmd.Process.Kill()
+		return false
 	}
+
+	return true
 }
 
 // Run our program binary
@@ -94,7 +99,8 @@ func run() {
 
 	gobPrint("starting application...")
 	if err := cmd.Start(); err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
+		cmd.Process.Kill()
 	}
 
 	app = cmd
@@ -114,8 +120,10 @@ func watch() {
 		case <-appWatcher.Change:
 			fmt.Println("[gob] restarting application...")
 			app.Process.Kill()
-			build()
-			run()
+			build := build()
+			if build {
+				run()
+			}
 		}
 	}
 }
