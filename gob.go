@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	fswatch "github.com/andreaskoch/go-fswatch"
 )
@@ -71,13 +72,20 @@ func (g *Gob) IsValidSrc() bool {
 
 	g.InputPath = os.Args[1]
 	g.Dir, g.Filename = filepath.Split(g.InputPath)
-	ext := filepath.Ext(g.Filename)
-	g.Binary = g.Config.BuildDir + "/" + g.Filename[0:len(g.Filename)-len(ext)]
+	if !strings.Contains(g.Filename, ".") {
+		g.Dir = filepath.Join(g.Dir, g.Filename)
+	}
+	srcIndex := strings.Index(g.Dir, "src")
+	if srcIndex == 0 {
+		g.Dir = g.Dir[4:]
+	}
+	g.Binary = g.Config.BuildDir + "/" + filepath.Base(g.Dir)
 
 	// Make sure the file we're trying to build exists
-	_, err := os.Stat(g.InputPath)
-	if os.IsNotExist(err) || filepath.Ext(g.InputPath) != ".go" {
-		g.Print("Please provide a valid source file to run.")
+	// See if the provided argument was a go package
+	_, err := os.Stat(filepath.Join(g.Config.GoPath, "src", g.Dir))
+	if os.IsNotExist(err) {
+		g.Print("Please provide a valid source file/package to run.")
 		return false
 	}
 
@@ -96,11 +104,11 @@ func (g *Gob) Setup() {
 
 // Build the source and save the binary
 func (g *Gob) Build() bool {
-	cmd := exec.Command("go", "build", "-o", g.Binary, g.InputPath)
+	cmd := exec.Command("go", "build", "-o", g.Binary, g.Dir)
 	cmd.Stdout = g.Config.Stdout
 	cmd.Stderr = g.Config.Stderr
 
-	g.Print("building src... " + g.InputPath)
+	g.Print("building src... " + g.Dir)
 	if err := cmd.Run(); err != nil {
 		fmt.Println(err)
 		cmd.Process.Kill()
