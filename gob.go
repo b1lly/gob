@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,78 +10,97 @@ import (
 	fswatch "github.com/andreaskoch/go-fswatch"
 )
 
-var (
-	app    *exec.Cmd
-	dir    string
-	file   string
-	binary string
-	path   string
+type Gob struct {
+	Cmd    *exec.Cmd
+	Config *Config
 
-	GO_DIR     string = os.Getenv("GOPATH")
-	GO_SRC_DIR string = GO_DIR + "/src/"
-	BUILD_DIR  string = GO_DIR + "/gob/build"
-)
+	// The full source path of the file to build
+	InputPath string
 
-func main() {
-	if !isValidSrc() {
-		return
-	}
+	// The absolute path of the user input
+	Dir string
 
-	gobPrint("initializing program...")
+	// The file name of the user input
+	Filename string
 
-	setup()
-	build := build()
-	if build {
-		run()
-	}
-	watch()
+	// The path to the binary file (e.g. output of build)
+	Binary string
 }
 
-func gobPrint(msg string) {
+// Builder configuration options
+type Config struct {
+	GoPath   string
+	BuildDir string
+	SrcDir   string
+
+	Stdout io.Writer
+	Stderr io.Writer
+}
+
+func NewGob() *Gob {
+	return &Gob{
+		Config: DefaultConfig(),
+	}
+}
+
+func DefaultConfig() *Config {
+	goPath := os.Getenv("GOPATH")
+
+	return &Config{
+		GoPath:   goPath,
+		BuildDir: goPath + "/gob/build",
+		SrcDir:   goPath + "/src/",
+		Stdout:   os.Stdout,
+		Stderr:   os.Stderr,
+	}
+}
+
+// Simple print method to prefix all output with "[gob]"
+func (g *Gob) Print(msg string) {
 	fmt.Println("[gob] " + msg)
 }
 
 // Simple argument validation
 // to short circuit compilation errors
-func isValidSrc() bool {
+func (g *Gob) IsValidSrc() bool {
 	// Make sure the user provided enough args to cmd line
 	if len(os.Args) < 2 {
-		gobPrint("Please provide a valid source file to run.")
+		g.Print("Please provide a valid source file to run.")
 		return false
 	}
 
-	path = os.Args[1]
-	dir, file = filepath.Split(path)
-	ext := filepath.Ext(file)
-	binary = BUILD_DIR + "/" + file[0:len(file)-len(ext)]
+	g.InputPath = os.Args[1]
+	g.Dir, g.Filename = filepath.Split(g.InputPath)
+	ext := filepath.Ext(g.Filename)
+	g.Binary = g.Config.BuildDir + "/" + g.Filename[0:len(g.Filename)-len(ext)]
 
 	// Make sure the file we're trying to build exists
-	_, err := os.Stat(path)
-	if os.IsNotExist(err) || filepath.Ext(path) != ".go" {
-		gobPrint("Please provide a valid source file to run.")
+	_, err := os.Stat(g.InputPath)
+	if os.IsNotExist(err) || filepath.Ext(g.InputPath) != ".go" {
+		g.Print("Please provide a valid source file to run.")
 		return false
 	}
 
 	return true
 }
 
-func setup() {
-	_, err := os.Stat(BUILD_DIR)
+// Create a temp directory based on the configuration.
+// This is where all the binaries are stored
+func (g *Gob) Setup() {
+	_, err := os.Stat(g.Config.BuildDir)
 	if os.IsNotExist(err) {
-		gobPrint("creating temporary build directory... " + BUILD_DIR)
-		os.MkdirAll(BUILD_DIR, 0777)
+		g.Print("creating temporary build directory... " + g.Config.BuildDir)
+		os.MkdirAll(g.Config.BuildDir, 0777)
 	}
 }
 
-// Build the application in a separate process
-// and pipe the output to the terminal
-func build() bool {
-	cmd := exec.Command("go", "build", "-o", binary, path)
+// Build the source and save the binary
+func (g *Gob) Build() bool {
+	cmd := exec.Command("go", "build", "-o", g.Binary, g.InputPath)
+	cmd.Stdout = g.Config.Stdout
+	cmd.Stderr = g.Config.Stderr
 
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	gobPrint("building src... " + path)
+	g.Print("building src... " + g.InputPath)
 	if err := cmd.Run(); err != nil {
 		fmt.Println(err)
 		cmd.Process.Kill()
@@ -90,40 +110,56 @@ func build() bool {
 	return true
 }
 
-// Run our program binary
-func run() {
-	cmd := exec.Command(binary)
+// Run our programs binary
+func (g *Gob) Run() {
+	cmd := exec.Command(g.Binary)
 
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = g.Config.Stdout
+	cmd.Stderr = g.Config.Stderr
 
-	gobPrint("starting application...")
+	g.Print("starting application...")
 	if err := cmd.Start(); err != nil {
 		fmt.Println(err)
 		cmd.Process.Kill()
 	}
 
-	app = cmd
+	g.Cmd = cmd
 }
 
 // Watch the filesystem for any changes
 // and restart the application if detected
-func watch() {
+func (g *Gob) Watch() {
 	skipNoFile := func(path string) bool {
 		return false
 	}
 
-	appWatcher := fswatch.NewFolderWatcher(GO_SRC_DIR, true, skipNoFile).Start()
+	appWatcher := fswatch.NewFolderWatcher(g.Config.SrcDir, true, skipNoFile).Start()
 
 	for appWatcher.IsRunning() {
 		select {
 		case <-appWatcher.Change:
-			fmt.Println("[gob] restarting application...")
-			app.Process.Kill()
-			build := build()
+			g.Print("restarting application...")
+			g.Cmd.Process.Kill()
+			build := g.Build()
 			if build {
-				run()
+				g.Run()
 			}
 		}
 	}
+}
+
+func main() {
+	gob := NewGob()
+	if !gob.IsValidSrc() {
+		return
+	}
+
+	gob.Print("initializing program...")
+
+	gob.Setup()
+	build := gob.Build()
+	if build {
+		gob.Run()
+	}
+	gob.Watch()
 }
