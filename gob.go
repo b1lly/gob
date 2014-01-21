@@ -169,27 +169,29 @@ func (g *Gob) Watch() {
 		return false
 	}
 
-	folder := fswatch.NewFolderWatcher(filepath.Join(g.Config.SrcDir), true, skipNoFile).Start()
+	folder := fswatch.NewFolderWatcher(filepath.Join(g.Config.SrcDir, g.PackagePath), true, skipNoFile).Start()
 
 	for folder.IsRunning() {
 		select {
 		case changes := <-folder.Change:
-			app, views := g.getChangeType(changes)
+			go func() {
+				app, views := g.getChangeType(changes)
 
-			if app {
-				g.Print("restarting application...")
-				g.Cmd.Process.Kill()
-				build := g.Build()
-				if build {
-					g.Run()
+				if app {
+					g.Print("restarting application...")
+					g.Cmd.Process.Kill()
+					build := g.Build()
+					if build {
+						g.Run()
+					}
 				}
-			}
 
-			// Special case for Soy template renderings
-			// TODO(billy) Implement Template Hook
-			for _, filename := range views {
-				g.Print("re-rendering soy template... " + filename)
-			}
+				// Special case for Soy template renderings
+				// TODO(billy) Implement Template Hook
+				for _, filename := range views {
+					g.Print("re-rendering soy template... " + filename)
+				}
+			}()
 		}
 	}
 }
