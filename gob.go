@@ -12,8 +12,9 @@ import (
 )
 
 type Gob struct {
-	Cmd    *exec.Cmd
-	Config *Config
+	Cmd     *exec.Cmd
+	CmdArgs []string
+	Config  *Config
 
 	InputPath string // The user input path of the file to build
 
@@ -79,8 +80,11 @@ func (g *Gob) IsValidSrc() bool {
 		return false
 	}
 
-	// Store the users raw input
+	// Store the users `path/to/src` input
 	g.InputPath = os.Args[1]
+
+	// Store the users `runtime` flags
+	g.CmdArgs = os.Args[2:]
 
 	// Stores the absolute path of our file or package
 	// Used to check to see if the package/file exists from root
@@ -144,7 +148,7 @@ func (g *Gob) Build() bool {
 
 // Run our programs binary
 func (g *Gob) Run() {
-	cmd := exec.Command(g.Binary)
+	cmd := exec.Command(g.Binary, g.CmdArgs...)
 
 	cmd.Stdout = g.Config.Stdout
 	cmd.Stderr = g.Config.Stderr
