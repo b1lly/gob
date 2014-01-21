@@ -15,20 +15,13 @@ type Gob struct {
 	Cmd    *exec.Cmd
 	Config *Config
 
-	// The user input path of the file to build
-	InputPath string
+	InputPath string // The user input path of the file to build
 
-	// The absolute path of the input path
-	Dir string
+	Dir      string // The absolute path of the input path
+	Filename string // The file name of the user input
 
-	// The file name of the user input
-	Filename string
-
-	// The "package" path of the program we're building
-	PackagePath string
-
-	// The path to the binary file (e.g. output of build)
-	Binary string
+	PackagePath string // The "package" path of the program we're building
+	Binary      string // The path to the binary file (e.g. output of build)
 }
 
 // Gob configuration options
@@ -37,15 +30,11 @@ type Config struct {
 	BuildDir string
 	SrcDir   string
 
-	// Files extensions that cause the app to rebuild
-	BuildTypes []string
-
-	// File extensions that cause the templating engine to re-render
-	TemplateTypes  []string
 	TemplateEngine interface{}
 
-	// File extensions to let the filewatcher ignore
-	IgnoreTypes []string
+	BuildTypes    []string // File extensions that cause the app to rebuild
+	TemplateTypes []string // File extensions that cause the templating engine to re-render
+	IgnoreTypes   []string // File extensions to let the filewatcher ignore
 
 	Stdout io.Writer
 	Stderr io.Writer
