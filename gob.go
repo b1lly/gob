@@ -8,34 +8,44 @@ import (
 	"path/filepath"
 	"strings"
 
-	fswatch "github.com/andreaskoch/go-fswatch"
+	fswatch "github.com/b1lly/go-fswatch"
 )
 
 type Gob struct {
 	Cmd    *exec.Cmd
 	Config *Config
 
-	// The full source path of the file to build
+	// The user input path of the file to build
 	InputPath string
 
-	// The absolute path of the user input
+	// The absolute path of the input path
 	Dir string
-
-	// The "package" path name of the program we're building
-	PackagePath string
 
 	// The file name of the user input
 	Filename string
+
+	// The "package" path of the program we're building
+	PackagePath string
 
 	// The path to the binary file (e.g. output of build)
 	Binary string
 }
 
-// Builder configuration options
+// Gob configuration options
 type Config struct {
 	GoPath   string
 	BuildDir string
 	SrcDir   string
+
+	// Files extensions that cause the app to rebuild
+	BuildTypes []string
+
+	// File extensions that cause the templating engine to re-render
+	TemplateTypes  []string
+	TemplateEngine interface{}
+
+	// File extensions to let the filewatcher ignore
+	IgnoreTypes []string
 
 	Stdout io.Writer
 	Stderr io.Writer
@@ -54,8 +64,13 @@ func DefaultConfig() *Config {
 		GoPath:   goPath,
 		BuildDir: goPath + "/gob/build",
 		SrcDir:   goPath + "/src/",
-		Stdout:   os.Stdout,
-		Stderr:   os.Stderr,
+
+		Stdout: os.Stdout,
+		Stderr: os.Stderr,
+
+		BuildTypes:    []string{".go"},
+		TemplateTypes: []string{".soy"},
+		IgnoreTypes:   []string{".js", ".css", ".scss", ".png", ".jpg", ".gif"},
 	}
 }
 
@@ -75,7 +90,7 @@ func (g *Gob) IsValidSrc() bool {
 		return false
 	}
 
-	// Users raw input
+	// Store the users raw input
 	g.InputPath = os.Args[1]
 
 	// Stores the absolute path of our file or package
@@ -165,15 +180,48 @@ func (g *Gob) Watch() {
 
 	for folder.IsRunning() {
 		select {
-		case <-folder.Change:
-			g.Print("restarting application...")
-			g.Cmd.Process.Kill()
-			build := g.Build()
-			if build {
-				g.Run()
+		case changes := <-folder.Change:
+			app, views := g.getChangeType(changes)
+
+			if app {
+				g.Print("restarting application...")
+				g.Cmd.Process.Kill()
+				build := g.Build()
+				if build {
+					g.Run()
+				}
+			}
+
+			// Special case for Soy template renderings
+			// TODO(billy) Implement Template Hook
+			for _, filename := range views {
+				g.Print("re-rendering soy template... " + filename)
 			}
 		}
 	}
+}
+
+// Looks at the files that were modified and checks their extension
+func (g *Gob) getChangeType(changes *fswatch.FolderChange) (app bool, views []string) {
+	var fileChanges []string
+	fileChanges = append(fileChanges, changes.New()...)
+	fileChanges = append(fileChanges, changes.Modified()...)
+	fileChanges = append(fileChanges, changes.Moved()...)
+
+	for _, filename := range fileChanges {
+		fileExt := filepath.Ext(filename)
+
+		// For now, just hardcode since we only have one of each type
+		// TODO(billy) handle a slice better
+		switch fileExt {
+		case g.Config.BuildTypes[0]:
+			app = true
+		case g.Config.TemplateTypes[0]:
+			views = append(views, filename)
+		}
+	}
+
+	return
 }
 
 func main() {
