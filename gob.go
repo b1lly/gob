@@ -161,7 +161,7 @@ func (g *Gob) Watch() {
 		return false
 	}
 
-	folder := fswatch.NewFolderWatcher(g.PackagePath, true, skipNoFile).Start()
+	folder := fswatch.NewFolderWatcher(filepath.Join(g.Config.SrcDir), true, skipNoFile).Start()
 
 	for folder.IsRunning() {
 		select {
