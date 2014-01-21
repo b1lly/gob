@@ -21,6 +21,9 @@ type Gob struct {
 	// The absolute path of the user input
 	Dir string
 
+	// The "package" path name of the program we're building
+	PackagePath string
+
 	// The file name of the user input
 	Filename string
 
@@ -64,26 +67,43 @@ func (g *Gob) Print(msg string) {
 // Simple argument validation
 // to short circuit compilation errors
 func (g *Gob) IsValidSrc() bool {
+	var err error
+
 	// Make sure the user provided enough args to cmd line
 	if len(os.Args) < 2 {
 		g.Print("Please provide a valid source file to run.")
 		return false
 	}
 
+	// Users raw input
 	g.InputPath = os.Args[1]
+
+	// Stores the absolute path of our file or package
+	// Used to check to see if the package/file exists from root
+	var absPath string
+
+	// Handle filename and "package" as inputs
 	g.Dir, g.Filename = filepath.Split(g.InputPath)
-	if !strings.Contains(g.Filename, ".") {
-		g.Dir = filepath.Join(g.Dir, g.Filename)
+	if strings.Contains(g.Filename, ".") {
+		g.Dir, err = filepath.Abs(g.Dir)
+
+		g.PackagePath, err = filepath.Rel(g.Config.SrcDir, g.Dir)
+		if err != nil {
+			fmt.Println(err)
+			return false
+		}
+
+		absPath = filepath.Join(g.Config.SrcDir, g.PackagePath, g.Filename)
+	} else {
+		g.PackagePath = g.InputPath
+		absPath = filepath.Join(g.Config.SrcDir, g.PackagePath)
 	}
-	srcIndex := strings.Index(g.Dir, "src")
-	if srcIndex == 0 {
-		g.Dir = g.Dir[4:]
-	}
+
+	// Save our "tmp" binary as the last element of the input
 	g.Binary = g.Config.BuildDir + "/" + filepath.Base(g.Dir)
 
-	// Make sure the file we're trying to build exists
-	// See if the provided argument was a go package
-	_, err := os.Stat(filepath.Join(g.Config.GoPath, "src", g.Dir))
+	// Make sure the file/package we're trying to build exists
+	_, err = os.Stat(absPath)
 	if os.IsNotExist(err) {
 		g.Print("Please provide a valid source file/package to run.")
 		return false
@@ -104,11 +124,11 @@ func (g *Gob) Setup() {
 
 // Build the source and save the binary
 func (g *Gob) Build() bool {
-	cmd := exec.Command("go", "build", "-o", g.Binary, g.Dir)
+	cmd := exec.Command("go", "build", "-o", g.Binary, g.InputPath)
 	cmd.Stdout = g.Config.Stdout
 	cmd.Stderr = g.Config.Stderr
 
-	g.Print("building src... " + g.Dir)
+	g.Print("building src... " + g.InputPath)
 	if err := cmd.Run(); err != nil {
 		fmt.Println(err)
 		cmd.Process.Kill()
@@ -141,11 +161,11 @@ func (g *Gob) Watch() {
 		return false
 	}
 
-	appWatcher := fswatch.NewFolderWatcher(g.Config.SrcDir, true, skipNoFile).Start()
+	folder := fswatch.NewFolderWatcher(g.PackagePath, true, skipNoFile).Start()
 
-	for appWatcher.IsRunning() {
+	for folder.IsRunning() {
 		select {
-		case <-appWatcher.Change:
+		case <-folder.Change:
 			g.Print("restarting application...")
 			g.Cmd.Process.Kill()
 			build := g.Build()
