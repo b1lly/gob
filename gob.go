@@ -92,8 +92,18 @@ func (g *Gob) IsValidSrc() bool {
 
 	// Handle filename and "package" as inputs
 	g.Dir, g.Filename = filepath.Split(g.InputPath)
-	if strings.Contains(g.Filename, ".") {
+
+	pkgPath := filepath.Join(g.Config.SrcDir, g.InputPath)
+	if _, err = os.Stat(pkgPath); !os.IsNotExist(err) {
+		// we were passed the package name to build and run
+		g.PackagePath = g.InputPath
+		absPath = pkgPath
+	} else if strings.Contains(g.Filename, ".") {
 		g.Dir, err = filepath.Abs(g.Dir)
+		if err != nil {
+			fmt.Println(err)
+			return false
+		}
 
 		g.PackagePath, err = filepath.Rel(g.Config.SrcDir, g.Dir)
 		if err != nil {
@@ -103,7 +113,18 @@ func (g *Gob) IsValidSrc() bool {
 
 		absPath = filepath.Join(g.Config.SrcDir, g.PackagePath, g.Filename)
 	} else {
-		g.PackagePath = g.InputPath
+		g.Dir, err = filepath.Abs(g.InputPath)
+		if err != nil {
+			fmt.Println(err)
+			return false
+		}
+
+		g.PackagePath, err = filepath.Rel(g.Config.SrcDir, g.Dir)
+		if err != nil {
+			fmt.Println(err)
+			return false
+		}
+
 		absPath = filepath.Join(g.Config.SrcDir, g.PackagePath)
 	}
 
@@ -132,7 +153,7 @@ func (g *Gob) Setup() {
 
 // Build the source and save the binary
 func (g *Gob) Build() bool {
-	cmd := exec.Command("go", "build", "-o", g.Binary, g.InputPath)
+	cmd := exec.Command("go", "build", "-o", g.Binary, g.PackagePath)
 	cmd.Stdout = g.Config.Stdout
 	cmd.Stderr = g.Config.Stderr
 
