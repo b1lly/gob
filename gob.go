@@ -178,9 +178,10 @@ func (g *Gob) Run() {
 	if err := cmd.Start(); err != nil {
 		fmt.Println(err)
 		cmd.Process.Kill()
+		g.Cmd = nil
+	} else {
+		g.Cmd = cmd
 	}
-
-	g.Cmd = cmd
 }
 
 // Watch the filesystem for any changes
@@ -200,7 +201,9 @@ func (g *Gob) Watch() {
 
 				if app {
 					g.Print("restarting application...")
-					g.Cmd.Process.Kill()
+					if g.Cmd != nil {
+						g.Cmd.Process.Kill()
+					}
 					build := g.Build()
 					if build {
 						g.Run()
