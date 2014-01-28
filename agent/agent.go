@@ -45,7 +45,6 @@ func (ga *GobAgent) AddRoute(w http.ResponseWriter, req *http.Request) {
 		if err != nil {
 			fmt.Println(err)
 		}
-		fmt.Println(ga.Routes)
 		fmt.Println("[gob] added subscriber to notify about template update...")
 	} else {
 		http.Error(w, "Post requests only.", 405)
