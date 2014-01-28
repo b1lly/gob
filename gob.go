@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -243,6 +244,38 @@ func (g *Gob) getChangeType(changes *fswatch.FolderChange) (app bool, views []st
 	return
 }
 
+type GobAgent struct {
+	Addr string
+}
+
+func NewGobAgent() *GobAgent {
+	return &GobAgent{
+		Addr: ":8080",
+	}
+}
+
+func (ga *GobAgent) NewServer() {
+	listener, err := net.Listen("tcp", ga.Addr)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	for {
+		conn, err := listener.Accept()
+
+		// handle error
+		var cmd []byte
+		fmt.Fscan(conn, &cmd)
+		fmt.Println("Message:", string(cmd))
+	}
+}
+
+func (ga *GobAgent) NewClient() {
+	conn, err := net.Dial("tcp", "127.0.0.1:8080")
+	// handle error
+	fmt.Fprintf(conn, "message\n")
+}
+
 func main() {
 	gob := NewGob()
 	if !gob.IsValidSrc() {
@@ -256,5 +289,8 @@ func main() {
 	if build {
 		gob.Run()
 	}
-	gob.Watch()
+	defer gob.Watch()
+
+	ga := NewGobAgent()
+	ga.NewServer()
 }
