@@ -1,9 +1,11 @@
-package main
+package builder
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
-	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -31,8 +33,6 @@ type Config struct {
 	GoPath   string
 	BuildDir string
 	SrcDir   string
-
-	TemplateEngine interface{}
 
 	BuildTypes    []string // File extensions that cause the app to rebuild
 	TemplateTypes []string // File extensions that cause the templating engine to re-render
@@ -211,10 +211,24 @@ func (g *Gob) Watch() {
 					}
 				}
 
-				// Special case for Soy template renderings
-				// TODO(billy) Implement Template Hook
-				for _, filename := range views {
-					g.Print("re-rendering soy template... " + filename)
+				// Talk to the Gob Agent when a view has been updated
+				// and notify the subscribers
+				if len(views) > 0 {
+					enc, err := json.Marshal(views)
+					if err != nil {
+						fmt.Println(err)
+						return
+					}
+
+					client := &http.Client{}
+					req, err := http.NewRequest("POST", "http://localhost:9034/notify", bytes.NewReader(enc))
+					if err != nil {
+						fmt.Println(err)
+						return
+					}
+
+					g.Print("re-rendering templates...")
+					client.Do(req)
 				}
 			}()
 		}
@@ -242,55 +256,4 @@ func (g *Gob) getChangeType(changes *fswatch.FolderChange) (app bool, views []st
 	}
 
 	return
-}
-
-type GobAgent struct {
-	Addr string
-}
-
-func NewGobAgent() *GobAgent {
-	return &GobAgent{
-		Addr: ":8080",
-	}
-}
-
-func (ga *GobAgent) NewServer() {
-	listener, err := net.Listen("tcp", ga.Addr)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	for {
-		conn, err := listener.Accept()
-
-		// handle error
-		var cmd []byte
-		fmt.Fscan(conn, &cmd)
-		fmt.Println("Message:", string(cmd))
-	}
-}
-
-func (ga *GobAgent) NewClient() {
-	conn, err := net.Dial("tcp", "127.0.0.1:8080")
-	// handle error
-	fmt.Fprintf(conn, "message\n")
-}
-
-func main() {
-	gob := NewGob()
-	if !gob.IsValidSrc() {
-		return
-	}
-
-	gob.Print("initializing program...")
-
-	gob.Setup()
-	build := gob.Build()
-	if build {
-		gob.Run()
-	}
-	defer gob.Watch()
-
-	ga := NewGobAgent()
-	ga.NewServer()
 }
