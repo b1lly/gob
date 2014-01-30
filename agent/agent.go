@@ -9,38 +9,59 @@ import (
 	"net/http"
 )
 
+// GobServer represents the single server gob
+// runs to notify subscribers of changes to
+// template files (currently only soy)
 type GobServer struct {
-	Addr             string
+	// The port GobServer binds to
+	Addr string
+
+	// The hosts GobServer should update about template changes
 	SubscriberRoutes []string
 }
 
+// GobAgent communicates with GobServer (from your code)
+// about changes to template files
 type GobAgent struct {
-	Addr       string
+	// The port GobAgent binds to
+	Addr string
+
+	// The function GobAgent should execute then it receives
+	// a message about updated template files
 	HandleFunc func(files []string)
 }
 
+// Creates a new GobServer which will bind to the specified port
 func NewGobServer(port string) *GobServer {
 	return &GobServer{
 		Addr: fmt.Sprintf(":%s", port),
 	}
 }
 
+// Creates a new GobAgent which will bind to the specified port
 func NewGobAgent(port string) *GobAgent {
 	return &GobAgent{
 		Addr: fmt.Sprintf(":%s", port),
 	}
 }
 
+// StartGobAgentWithFunc handles all the boilerplate normally required
+// to start up a GobAgent
 func StartGobAgentWithFunc(agentPort, serverPort string, f func([]string)) {
 	ga := NewGobAgent(agentPort)
 	ga.SetHandleFunc(f)
 	ga.Start(serverPort)
 }
 
+// SetHandleFunc registers a function to call with the GobAgent when
+// an update message is recieved. The only parameter it should take is
+// the list of changed files
 func (ga *GobAgent) SetHandleFunc(f func([]string)) {
 	ga.HandleFunc = f
 }
 
+// Start sets up the web server for a GobAgent, subscribes to
+// the GobServer (if it's up) and begins to listen for updates
 func (ga *GobAgent) Start(serverPort string) {
 	http.HandleFunc("/update", ga.HandleUpdate)
 
@@ -56,6 +77,8 @@ func (ga *GobAgent) Start(serverPort string) {
 	}
 }
 
+// HandleUpdate receives the files that have changed and
+// calls the registered function on them
 func (ga *GobAgent) HandleUpdate(w http.ResponseWriter, req *http.Request) {
 	var files map[string][]string
 	data, err := ioutil.ReadAll(req.Body)
@@ -88,6 +111,8 @@ func (ga *GobServer) Start() {
 	}
 }
 
+// Subscribe registers a GobAgent with a GobServer listening
+// on the given port
 func (ga *GobAgent) Subscribe(serverPort string) error {
 	client := http.Client{}
 	body := map[string]string{
@@ -97,7 +122,10 @@ func (ga *GobAgent) Subscribe(serverPort string) error {
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequest("POST", fmt.Sprintf("http://localhost:%s/subscribe", serverPort), bytes.NewReader(data))
+	req, err := http.NewRequest(
+		"POST",
+		fmt.Sprintf("http://localhost:%s/subscribe", serverPort),
+		bytes.NewReader(data))
 	if err != nil {
 		return err
 	}
