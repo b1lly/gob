@@ -1,18 +1,19 @@
 package builder
 
 import (
-	"bytes"
-	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
 	fswatch "github.com/b1lly/go-fswatch"
+	"github.com/b1lly/gob/agent"
 )
+
+var GobServer *agent.GobServer
 
 type Gob struct {
 	Cmd     *exec.Cmd
@@ -75,17 +76,19 @@ func (g *Gob) Print(msg string) {
 func (g *Gob) IsValidSrc() bool {
 	var err error
 
+	nonGobArgs := flag.Args()
+
 	// Make sure the user provided enough args to cmd line
-	if len(os.Args) < 2 {
+	if len(nonGobArgs) < 1 {
 		g.Print("Please provide a valid source file to run.")
 		return false
 	}
 
 	// Store the users `path/to/src` input
-	g.InputPath = os.Args[1]
+	g.InputPath = nonGobArgs[0]
 
 	// Store the users `runtime` flags
-	g.CmdArgs = os.Args[2:]
+	g.CmdArgs = nonGobArgs[1:]
 
 	// Stores the absolute path of our file or package
 	// Used to check to see if the package/file exists from root
@@ -213,22 +216,8 @@ func (g *Gob) Watch() {
 
 				// Talk to the Gob Agent when a view has been updated
 				// and notify the subscribers
-				if len(views) > 0 {
-					enc, err := json.Marshal(views)
-					if err != nil {
-						fmt.Println(err)
-						return
-					}
-
-					client := &http.Client{}
-					req, err := http.NewRequest("POST", "http://localhost:9034/notify", bytes.NewReader(enc))
-					if err != nil {
-						fmt.Println(err)
-						return
-					}
-
-					g.Print("re-rendering templates...")
-					client.Do(req)
+				if len(views) > 0 && GobServer != nil {
+					GobServer.NotifySubscribers(views)
 				}
 			}()
 		}
