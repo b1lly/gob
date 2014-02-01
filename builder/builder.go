@@ -10,10 +10,10 @@ import (
 	"strings"
 
 	fswatch "github.com/b1lly/go-fswatch"
-	"github.com/b1lly/gob/agent"
+	"github.com/b1lly/gob/server"
 )
 
-var GobServer *agent.GobServer
+var GobServer *server.GobServer
 
 type Gob struct {
 	Cmd     *exec.Cmd
