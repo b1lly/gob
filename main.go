@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	"github.com/b1lly/gob/agent"
 	"github.com/b1lly/gob/builder"
+	"github.com/b1lly/gob/server"
 )
 
 var (
@@ -21,7 +21,7 @@ func main() {
 	}
 
 	if *watchTemplates {
-		builder.GobServer = agent.NewGobServer(*port)
+		builder.GobServer = server.NewGobServer(*port)
 		go builder.GobServer.Start()
 	}
 
