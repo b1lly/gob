@@ -32,5 +32,5 @@ func main() {
 	// The response sends back a list of files in the body
 	// So we can unmarshal it from the response into a slice of strings
 	files := []string{}
-	err := json.Unmarshal(res.Body, &files)
+	// err = json.Unmarshal(res.Body, &files)
 }
