@@ -10,6 +10,7 @@ import (
 var (
 	watchTemplates = flag.Bool("agent", false, "watch templates and notify gob agent of changes")
 	port           = flag.String("port", "9034", "port for gob to listen for subscribers on")
+	watchDeps      = flag.Bool("deps", false, "watch dependencies of your package for changes")
 )
 
 func main() {
@@ -26,6 +27,10 @@ func main() {
 	}
 
 	gob.Print("initializing program...")
+
+	if *watchDeps {
+		gob.GetPkgDeps()
+	}
 
 	gob.Setup()
 	build := gob.Build()

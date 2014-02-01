@@ -3,9 +3,11 @@ package builder
 import (
 	"flag"
 	"fmt"
+	"go/build"
 	"io"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -25,8 +27,9 @@ type Gob struct {
 	Dir      string // The absolute path of the input path
 	Filename string // The file name of the user input
 
-	PackagePath string // The "package" path of the program we're building
-	Binary      string // The path to the binary file (e.g. output of build)
+	PackagePath string   // The "package" path of the program we're building
+	Binary      string   // The path to the binary file (e.g. output of build)
+	PkgDeps     []string // The 3rd-party dependencies of the package we're building
 }
 
 // Gob configuration options
@@ -185,6 +188,28 @@ func (g *Gob) Run() {
 		g.Cmd = nil
 	} else {
 		g.Cmd = cmd
+	}
+}
+
+func (g *Gob) GetPkgDeps() {
+	config := build.Default
+	pkgsToCheck := []string{g.PackagePath}
+	deps := make(map[string]bool)
+	for i := 0; i < len(pkgsToCheck); i++ {
+		pkg := pkgsToCheck[i]
+		p, err := config.Import(pkg, path.Join(config.GOPATH, "src"), build.AllowBinary)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		for _, dep := range p.Imports {
+			// TODO(ttacon) Smarter filtering of 3rd party packages
+			if ok, _ := deps[dep]; !ok && strings.Contains(dep, ".") {
+				pkgsToCheck = append(pkgsToCheck, dep)
+				deps[dep] = true
+				g.PkgDeps = append(g.PkgDeps, dep)
+			}
+		}
 	}
 }
 
