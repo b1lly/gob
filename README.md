@@ -34,13 +34,13 @@ event is received.
 
 ### Gob Agent Overview
 
-    The gob/agent package provides a way for your application to talk to
-    the gob builder. You simply register a handler with Gob Agent and
-    start it up. That will automatically setup a communication channel with the GobServer
-    which is built into Gob. GobServer will notifiy GobAgent of template files
-    that were changed and will call the handlers that you have registered on the Agent.
-    This is very useful for applications that have their own templating engines.
-    It provides a way to re-render templates without having to rebuild the entire application.
+The gob/agent package provides a way for your application to talk to
+the gob builder. You simply register a handler with Gob Agent and
+start it up. That will automatically setup a communication channel with the GobServer
+which is built into Gob. GobServer will notifiy GobAgent of template files
+that were changed and will call the handlers that you have registered on the Agent.
+This is very useful for applications that have their own templating engines.
+It provides a way to re-render templates without having to rebuild the entire application.
     
-    NOTE: We currently only recognize *.soy templates as template files, but will provide
-    a way in the future to customize this.
+NOTE: We currently only recognize *.soy templates as template files, but will provide
+a way in the future to customize this.
