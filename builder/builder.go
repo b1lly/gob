@@ -10,9 +10,10 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 
-	fswatch "github.com/b1lly/go-fswatch"
 	"github.com/b1lly/gob/server"
+	"github.com/ttacon/fentry"
 )
 
 var GobServer *server.GobServer
@@ -216,15 +217,19 @@ func (g *Gob) GetPkgDeps() {
 // Watch the filesystem for any changes
 // and restart the application if detected
 func (g *Gob) Watch() {
-	skipNoFile := func(path string) bool {
-		return false
+
+	// fentry needs fully qualified directories at the moment
+	toWatch := make([]string, len(g.PkgDeps)+1)
+	for i, dep := range g.PkgDeps {
+		toWatch[i] = path.Join(g.Config.SrcDir, dep)
 	}
+	toWatch[len(toWatch)-1] = path.Join(g.Config.SrcDir, g.PackagePath)
 
-	folder := fswatch.NewFolderWatcher(filepath.Join(g.Config.SrcDir, g.PackagePath), true, skipNoFile).Start()
+	f := fentry.NewFentry(toWatch).SetDuration(time.Second).SetRecursiveWatch(true).Watch()
 
-	for folder.IsRunning() {
+	for f.IsRunning() {
 		select {
-		case changes := <-folder.Change:
+		case changes := <-f.Changes:
 			go func() {
 				app, views := g.getChangeType(changes)
 
@@ -250,12 +255,7 @@ func (g *Gob) Watch() {
 }
 
 // Looks at the files that were modified and checks their extension
-func (g *Gob) getChangeType(changes *fswatch.FolderChange) (app bool, views []string) {
-	var fileChanges []string
-	fileChanges = append(fileChanges, changes.New()...)
-	fileChanges = append(fileChanges, changes.Modified()...)
-	fileChanges = append(fileChanges, changes.Moved()...)
-
+func (g *Gob) getChangeType(fileChanges []string) (app bool, views []string) {
 	for _, filename := range fileChanges {
 		fileExt := filepath.Ext(filename)
 
