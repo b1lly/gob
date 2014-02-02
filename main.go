@@ -19,13 +19,13 @@ var (
 	useConfig  = flag.Bool("useConfig", true, "use gob config file if it exists")
 	saveConfig = flag.Bool("saveConfig", false, "save the current flags as th default config")
 
-	gobFlagsConfig gobFlags
+	GobFlagsConfig gobFlags
 )
 
 func main() {
 	flag.Parse()
 
-	gobFlagsConfig = gobFlags{
+	GobFlagsConfig = gobFlags{
 		WatchTemplates:               *watchTemplates,
 		GobServerPort:                *port,
 		WatchPkgDependencies:         *watchDeps,

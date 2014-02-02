@@ -19,7 +19,7 @@ type gobFlags struct {
 }
 
 func WriteConfigToPackage(gob *builder.Gob) {
-	data, err := json.Marshal(&gobFlagsConfig)
+	data, err := json.Marshal(&GobFlagsConfig)
 	if err != nil {
 		fmt.Printf("[gob] failed to save config file due to error: %v\n", err)
 		return
@@ -46,7 +46,7 @@ func LoadConfig(gob *builder.Gob) {
 		fmt.Printf("[gob] failed to load config: %v\n", err)
 		return
 	}
-	err = json.Unmarshal(data, &gobFlagsConfig)
+	err = json.Unmarshal(data, GobFlagsConfig)
 	if err != nil {
 		fmt.Printf("[gob] failed to load config: %v\n", err)
 	}
