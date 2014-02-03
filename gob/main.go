@@ -2,8 +2,9 @@ package main
 
 import (
 	"flag"
-	"github.com/b1lly/gob/builder"
 
+	"github.com/b1lly/gob"
+	"github.com/b1lly/gob/builder"
 	"github.com/b1lly/gob/server"
 )
 
@@ -19,13 +20,13 @@ var (
 	useConfig  = flag.Bool("useConfig", true, "use gob config file if it exists")
 	saveConfig = flag.Bool("saveConfig", false, "save the current flags as th default config")
 
-	GobFlagsConfig gobFlags
+	GobFlagsConfig gob.GobFlags
 )
 
 func main() {
 	flag.Parse()
 
-	GobFlagsConfig = gobFlags{
+	GobFlagsConfig = gob.GobFlags{
 		WatchTemplates:               *watchTemplates,
 		GobServerPort:                *port,
 		WatchPkgDependencies:         *watchDeps,
@@ -33,17 +34,17 @@ func main() {
 		RecursivelyWatchDependencies: *recursivelyWatchDeps,
 	}
 
-	gob := builder.NewGob()
-	if !gob.IsValidSrc() {
+	gb := builder.NewGob()
+	if !gb.IsValidSrc() {
 		return
 	}
 
 	if *saveConfig {
-		WriteConfigToPackage(gob)
+		gob.WriteConfigToPackage(gb, GobFlagsConfig)
 	}
 
 	if *useConfig {
-		LoadConfig(gob)
+		gob.LoadConfig(gb, GobFlagsConfig)
 	}
 
 	if *watchTemplates {
@@ -51,17 +52,17 @@ func main() {
 		go builder.GobServer.Start()
 	}
 
-	gob.Print("initializing program...")
+	gb.Print("initializing program...")
 
 	if *watchDeps {
-		gob.GetPkgDeps()
+		gb.GetPkgDeps()
 	}
 
-	gob.Setup()
-	build := gob.Build()
+	gb.Setup()
+	build := gb.Build()
 	if build {
-		gob.Run()
+		gb.Run()
 	}
 
-	gob.Watch()
+	gb.Watch()
 }

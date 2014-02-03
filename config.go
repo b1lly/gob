@@ -1,4 +1,4 @@
-package main
+package gob
 
 import (
 	"bytes"
@@ -10,7 +10,7 @@ import (
 	"github.com/b1lly/gob/builder"
 )
 
-type gobFlags struct {
+type GobFlags struct {
 	WatchTemplates               bool   `json:"watchTemplates"`
 	GobServerPort                string `json:"gobServerPort"`
 	WatchPkgDependencies         bool   `json:"watchPackageDependencies"`
@@ -18,7 +18,7 @@ type gobFlags struct {
 	RecursivelyWatchDependencies bool   `json:recursivelyWatchDependencies"`
 }
 
-func WriteConfigToPackage(gob *builder.Gob) {
+func WriteConfigToPackage(gob *builder.Gob, GobFlagsConfig GobFlags) {
 	data, err := json.Marshal(&GobFlagsConfig)
 	if err != nil {
 		fmt.Printf("[gob] failed to save config file due to error: %v\n", err)
@@ -40,7 +40,7 @@ func WriteConfigToPackage(gob *builder.Gob) {
 	}
 }
 
-func LoadConfig(gob *builder.Gob) {
+func LoadConfig(gob *builder.Gob, GobFlagsConfig GobFlags) {
 	data, err := ioutil.ReadFile(path.Join(gob.Config.SrcDir, gob.PackagePath, ".gob.json"))
 	if err != nil {
 		fmt.Printf("[gob] failed to load config: %v\n", err)
