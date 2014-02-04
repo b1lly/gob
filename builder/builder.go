@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/b1lly/gob/server"
+	"github.com/b1lly/gob/agent"
 	"github.com/ttacon/fentry"
 )
 
-var GobServer *server.GobServer
+var GobServer *agent.GobServer
 
 type Gob struct {
 	Cmd     *exec.Cmd

@@ -4,8 +4,8 @@ import (
 	"flag"
 
 	"github.com/b1lly/gob"
+	"github.com/b1lly/gob/agent"
 	"github.com/b1lly/gob/builder"
-	"github.com/b1lly/gob/server"
 )
 
 var (
@@ -48,7 +48,7 @@ func main() {
 	}
 
 	if *watchTemplates {
-		builder.GobServer = server.NewGobServer(*port)
+		builder.GobServer = agent.NewGobServer(*port)
 		go builder.GobServer.Start()
 	}
 
