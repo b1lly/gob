@@ -49,7 +49,6 @@ func main() {
 	// Decides whether or not to start up the GobServer
 	// for the GobAgent client to connect to
 	if *watchTemplates {
-		// TODO (billy) Make a part of Gob struct
 		gb.GobServer = agent.NewGobServer(*port)
 		go gb.GobServer.Start()
 	}
