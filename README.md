@@ -29,8 +29,12 @@ event is received.
 
 ### Advanced CLI Flags
 
-    --agent=[false,true]
-    --port=[9034]
+    -agent         // Spawns up the GobServer for the Agent to connect to (default false)
+    -port=[9034]
+    -norun         // Builds and watches for changes, but never runs the application (default false)
+    -deps          // Will watch pkg dependencies, in addition to the main app package (default false)
+    -saveConfig    // Saves the current CLI Flags to disc in JSON format (default false)
+    -loadConfig    // Loads up a config from disc and uses it (default true)
 
 ### Gob Agent Overview
 
