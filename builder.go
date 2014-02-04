@@ -1,27 +1,25 @@
-package builder
+package gob
 
 import (
 	"flag"
 	"fmt"
+	"github.com/b1lly/gob/agent"
+	"github.com/ttacon/fentry"
 	"go/build"
-	"io"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/b1lly/gob/agent"
-	"github.com/ttacon/fentry"
 )
 
-var GobServer *agent.GobServer
-
 type Gob struct {
-	Cmd     *exec.Cmd
-	CmdArgs []string
-	Config  *Config
+	GobServer  *agent.GobServer
+	Cmd        *exec.Cmd
+	CmdArgs    []string
+	Config     *Config   // See "config.go"
+	FlagConfig *GobFlags // See "config.go"
 
 	InputPath string // The user input path of the file to build
 
@@ -33,40 +31,12 @@ type Gob struct {
 	PkgDeps     []string // The 3rd-party dependencies of the package we're building
 }
 
-// Gob configuration options
-type Config struct {
-	GoPath   string
-	BuildDir string
-	SrcDir   string
-
-	BuildTypes    []string // File extensions that cause the app to rebuild
-	TemplateTypes []string // File extensions that cause the templating engine to re-render
-	IgnoreTypes   []string // File extensions to let the filewatcher ignore
-
-	Stdout io.Writer
-	Stderr io.Writer
-}
-
-func NewGob() *Gob {
+// NewGob returns a new instance of Gob
+// with the configuration settings applied
+func NewGob(gobFlags *GobFlags) *Gob {
 	return &Gob{
-		Config: DefaultConfig(),
-	}
-}
-
-func DefaultConfig() *Config {
-	goPath := os.Getenv("GOPATH")
-
-	return &Config{
-		GoPath:   goPath,
-		BuildDir: goPath + "/gob/build",
-		SrcDir:   goPath + "/src/",
-
-		Stdout: os.Stdout,
-		Stderr: os.Stderr,
-
-		BuildTypes:    []string{".go"},
-		TemplateTypes: []string{".soy"},
-		IgnoreTypes:   []string{".js", ".css", ".scss", ".png", ".jpg", ".gif"},
+		Config:     DefaultConfig(),
+		FlagConfig: gobFlags,
 	}
 }
 
@@ -75,8 +45,8 @@ func (g *Gob) Print(msg string) {
 	fmt.Println("[gob] " + msg)
 }
 
-// Simple argument validation
-// to short circuit compilation errors
+// IsValidSrc is a simple "input" validation helper
+// that will try to determine the package that a particular path belongs too.
 func (g *Gob) IsValidSrc() bool {
 	var err error
 
@@ -175,8 +145,13 @@ func (g *Gob) Build() bool {
 	return true
 }
 
-// Run our programs binary
+// Run will attempt to run the binary that was previously compiled by Gob.
 func (g *Gob) Run() {
+	if g.FlagConfig.NoRunMode {
+		g.Print("waiting for changes to recompile...")
+		return
+	}
+
 	cmd := exec.Command(g.Binary, g.CmdArgs...)
 
 	cmd.Stdout = g.Config.Stdout
@@ -246,8 +221,8 @@ func (g *Gob) Watch() {
 
 				// Talk to the Gob Agent when a view has been updated
 				// and notify the subscribers
-				if len(views) > 0 && GobServer != nil {
-					GobServer.NotifySubscribers(views)
+				if len(views) > 0 && g.GobServer != nil {
+					g.GobServer.NotifySubscribers(views)
 				}
 			}()
 		}

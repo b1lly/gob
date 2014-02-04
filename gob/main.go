@@ -2,14 +2,13 @@ package main
 
 import (
 	"flag"
-
 	"github.com/b1lly/gob"
 	"github.com/b1lly/gob/agent"
-	"github.com/b1lly/gob/builder"
 )
 
 var (
 	// Normal gob flags
+	noRunMode            = flag.Bool("norun", false, "hot compile code and build it, but don't run it")
 	watchTemplates       = flag.Bool("agent", false, "watch templates and notify gob agent of changes")
 	port                 = flag.String("port", "9034", "port for gob to listen for subscribers on")
 	watchDeps            = flag.Bool("deps", false, "watch dependencies of your package for changes")
@@ -19,50 +18,61 @@ var (
 	// flags pertaining to gob config file usage
 	useConfig  = flag.Bool("useConfig", true, "use gob config file if it exists")
 	saveConfig = flag.Bool("saveConfig", false, "save the current flags as th default config")
-
-	GobFlagsConfig gob.GobFlags
 )
 
 func main() {
 	flag.Parse()
 
-	GobFlagsConfig = gob.GobFlags{
+	// Creates a new instance of Gob including the
+	// settings passed in from the user flags
+	gb := gob.NewGob(&gob.GobFlags{
+		NoRunMode:                    *noRunMode,
 		WatchTemplates:               *watchTemplates,
 		GobServerPort:                *port,
 		WatchPkgDependencies:         *watchDeps,
 		DependencyCheckInterval:      *depInterval,
 		RecursivelyWatchDependencies: *recursivelyWatchDeps,
-	}
+	})
 
-	gb := builder.NewGob()
 	if !gb.IsValidSrc() {
 		return
 	}
 
 	if *saveConfig {
-		gob.WriteConfigToPackage(gb, GobFlagsConfig)
+		gb.WriteConfigToPackage()
 	}
 
 	if *useConfig {
-		gob.LoadConfig(gb, GobFlagsConfig)
+		gb.LoadConfig()
 	}
 
+	// Decides whether or not to start up the GobServer
+	// for the GobAgent client to connect to
 	if *watchTemplates {
-		builder.GobServer = agent.NewGobServer(*port)
-		go builder.GobServer.Start()
+		// TODO (billy) Make a part of Gob struct
+		gb.GobServer = agent.NewGobServer(*port)
+		go gb.GobServer.Start()
 	}
 
+	// Notify the user that gob has started up
 	gb.Print("initializing program...")
 
+	// For performance purposes, we ignore dependencies by default
 	if *watchDeps {
 		gb.GetPkgDeps()
 	}
 
+	// Create the temporary build directory for our programs
+	// and setup other basic things
 	gb.Setup()
+
+	// Build the application and attempt to start it up
+	// The gob.Run() will short circuit if -norun is specified
 	build := gb.Build()
 	if build {
 		gb.Run()
 	}
 
+	// Start watching the filesystem for updates
 	gb.Watch()
 }
