@@ -55,8 +55,8 @@ type GobFlags struct {
 }
 
 // WriteConfigToPackage writes a gob config file to the directory of the target package
-func (gob *Gob) WriteConfigToPackage() {
-	data, err := json.Marshal(&gob.FlagConfig)
+func (gb *Gob) WriteConfigToPackage() {
+	data, err := json.Marshal(&gb.FlagConfig)
 	if err != nil {
 		fmt.Printf("[gob] failed to save config file due to error: %v\n", err)
 		return
@@ -69,7 +69,7 @@ func (gob *Gob) WriteConfigToPackage() {
 		return
 	}
 
-	err = ioutil.WriteFile(path.Join(gob.Config.SrcDir, gob.PackagePath, ".gob.json"),
+	err = ioutil.WriteFile(path.Join(gb.Config.SrcDir, gb.PackagePath, ".gob.json"),
 		buffer.Bytes(),
 		0644)
 	if err != nil {
@@ -78,13 +78,13 @@ func (gob *Gob) WriteConfigToPackage() {
 }
 
 // LoadConfig loads the data from the gob config file into the passed GobFlags struct
-func (gob *Gob) LoadConfig() {
-	data, err := ioutil.ReadFile(path.Join(gob.Config.SrcDir, gob.PackagePath, ".gob.json"))
+func (gb *Gob) LoadConfig() {
+	data, err := ioutil.ReadFile(path.Join(gb.Config.SrcDir, gb.PackagePath, ".gob.json"))
 	if err != nil {
 		fmt.Printf("[gob] failed to load config: %v\n", err)
 		return
 	}
-	err = json.Unmarshal(data, &gob.FlagConfig)
+	err = json.Unmarshal(data, &gb.FlagConfig)
 	if err != nil {
 		fmt.Printf("[gob] failed to load config: %v\n", err)
 	}
