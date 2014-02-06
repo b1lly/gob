@@ -205,26 +205,24 @@ func (g *Gob) Watch() {
 	for f.IsRunning() {
 		select {
 		case changes := <-f.Changes:
-			go func() {
-				app, views := g.getChangeType(changes)
+			app, views := g.getChangeType(changes)
 
-				if app {
-					g.Print("restarting application...")
-					if g.Cmd != nil {
-						g.Cmd.Process.Kill()
-					}
-					build := g.Build()
-					if build {
-						g.Run()
-					}
+			if app {
+				g.Print("restarting application...")
+				if g.Cmd != nil {
+					g.Cmd.Process.Kill()
 				}
+				build := g.Build()
+				if build {
+					g.Run()
+				}
+			}
 
-				// Talk to the Gob Agent when a view has been updated
-				// and notify the subscribers
-				if len(views) > 0 && g.GobServer != nil {
-					g.GobServer.NotifySubscribers(views)
-				}
-			}()
+			// Talk to the Gob Agent when a view has been updated
+			// and notify the subscribers
+			if len(views) > 0 && g.GobServer != nil {
+				g.GobServer.NotifySubscribers(views)
+			}
 		}
 	}
 }
