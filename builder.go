@@ -4,8 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"github.com/b1lly/gob/agent"
-	"github.com/ttacon/fentry"
+	"github.com/howeyc/fsnotify"
 	"go/build"
+	"log"
 	"os"
 	"os/exec"
 	"path"
@@ -192,44 +193,116 @@ func (g *Gob) GetPkgDeps() {
 // Watch the filesystem for any changes
 // and restart the application if detected
 func (g *Gob) Watch() {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	// fentry needs fully qualified directories at the moment
+	done := make(chan bool)
+
+	// Process events
+	go func() {
+		// Used to keep track of previous updates
+		var lastUpdate time.Time
+
+		// Used as a buffer to track multiple unique file changes
+		fileChanges := map[string]bool{}
+
+		for {
+			select {
+			case ev := <-watcher.Event:
+				_, file := filepath.Split(ev.Name)
+
+				// Short circuit if a file is renamed
+				// or if the file is hidden
+				if ev.IsRename() || !strings.HasPrefix(file, ".") {
+					return
+				}
+
+				// Buffer up a bunch of files from our events
+				// until the next update
+				fileChanges[file] = true
+
+				// Avoid excess rebuilds
+				if time.Since(lastUpdate).Seconds() > 1 {
+					lastUpdate = time.Now()
+
+					app, views := g.getChangeType(fileChanges)
+
+					// If they are application files, rebuild
+					if app {
+						g.Print("restarting application...")
+						if g.Cmd != nil {
+							g.Cmd.Process.Kill()
+						}
+						build := g.Build()
+						if build {
+							g.Run()
+						}
+					}
+
+					// Talk to the Gob Agent when a view has been updated
+					// and notify the subscribers
+					if len(views) > 0 && g.GobServer != nil {
+						g.GobServer.NotifySubscribers(views)
+					}
+
+					// Empty the files that were updated
+					for k := range fileChanges {
+						delete(fileChanges, k)
+					}
+				}
+			case err := <-watcher.Error:
+				log.Println("error:", err)
+			}
+		}
+	}()
+
+	// Our watchers require absolute paths for our dependencies
 	toWatch := make([]string, len(g.PkgDeps)+1)
 	for i, dep := range g.PkgDeps {
 		toWatch[i] = path.Join(g.Config.SrcDir, dep)
 	}
+
+	// The last package to watch is the application package
 	toWatch[len(toWatch)-1] = path.Join(g.Config.SrcDir, g.PackagePath)
 
-	f := fentry.NewFentry(toWatch).SetDuration(time.Second).SetRecursiveWatch(true).Watch()
-
-	for f.IsRunning() {
-		select {
-		case changes := <-f.Changes:
-			app, views := g.getChangeType(changes)
-
-			if app {
-				g.Print("restarting application...")
-				if g.Cmd != nil {
-					g.Cmd.Process.Kill()
+	// Watch the packages
+	for i, path := range toWatch {
+		if i < len(toWatch)-1 {
+			err = watcher.Watch(path)
+			if err != nil {
+				log.Fatal(err)
+			}
+		} else {
+			// If it's our application package, recursively
+			// watch all sub directories
+			f := func(path string, info os.FileInfo, err error) error {
+				if err != nil {
+					return err
 				}
-				build := g.Build()
-				if build {
-					g.Run()
+
+				// Ignore hidden directories
+				if strings.HasPrefix(filepath.Base(path), ".") {
+					return filepath.SkipDir
 				}
+
+				return watcher.Watch(path)
 			}
 
-			// Talk to the Gob Agent when a view has been updated
-			// and notify the subscribers
-			if len(views) > 0 && g.GobServer != nil {
-				g.GobServer.NotifySubscribers(views)
+			filepath.Walk(path, f)
+			if err != nil {
+				log.Fatal(err)
 			}
 		}
 	}
+
+	<-done
 }
 
 // Looks at the files that were modified and checks their extension
-func (g *Gob) getChangeType(fileChanges []string) (app bool, views []string) {
-	for _, filename := range fileChanges {
+func (g *Gob) getChangeType(fileChanges map[string]bool) (app bool, views []string) {
+	for filename := range fileChanges {
 		fileExt := filepath.Ext(filename)
 
 		// For now, just hardcode since we only have one of each type
