@@ -21,7 +21,7 @@ func main() {
 		time.Sleep(5 * time.Second)
 
 		if connection := rand.Intn(10); connection > 5 {
-			fmt.Println("Handling request...")
+			fmt.Println("Handling requests...")
 		}
 	}
 }

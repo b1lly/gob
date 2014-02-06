@@ -211,13 +211,12 @@ func (g *Gob) Watch() {
 		for {
 			select {
 			case ev := <-watcher.Event:
-				_, file := filepath.Split(ev.Name)
-
 				// Short circuit if a file is renamed
-				// or if the file is hidden
-				if ev.IsRename() || !strings.HasPrefix(file, ".") {
+				if ev.IsRename() {
 					return
 				}
+
+				_, file := filepath.Split(ev.Name)
 
 				// Buffer up a bunch of files from our events
 				// until the next update
@@ -231,13 +230,17 @@ func (g *Gob) Watch() {
 
 					// If they are application files, rebuild
 					if app {
-						g.Print("restarting application...")
-						if g.Cmd != nil {
-							g.Cmd.Process.Kill()
-						}
-						build := g.Build()
-						if build {
-							g.Run()
+						// Ignore hidden files
+						// TODO(billy) Figure out why this prevents duplicate events
+						if !strings.HasPrefix(file, ".") {
+							g.Print("restarting application...")
+							if g.Cmd != nil {
+								g.Cmd.Process.Kill()
+							}
+							build := g.Build()
+							if build {
+								g.Run()
+							}
 						}
 					}
 
