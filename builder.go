@@ -213,7 +213,7 @@ func (g *Gob) Watch() {
 			case ev := <-watcher.Event:
 				// Short circuit if a file is renamed
 				if ev.IsRename() {
-					return
+					break
 				}
 
 				_, file := filepath.Split(ev.Name)
@@ -228,11 +228,11 @@ func (g *Gob) Watch() {
 
 					app, views := g.getChangeType(fileChanges)
 
-					// If they are application files, rebuild
-					if app {
-						// Ignore hidden files
-						// TODO(billy) Figure out why this prevents duplicate events
-						if !strings.HasPrefix(file, ".") {
+					// Ignore hidden files
+					// TODO(billy) Figure out why this prevents duplicate events
+					if !strings.HasPrefix(file, ".") {
+						// If they are application files, rebuild
+						if app {
 							g.Print("restarting application...")
 							if g.Cmd != nil {
 								g.Cmd.Process.Kill()
@@ -242,12 +242,12 @@ func (g *Gob) Watch() {
 								g.Run()
 							}
 						}
-					}
 
-					// Talk to the Gob Agent when a view has been updated
-					// and notify the subscribers
-					if len(views) > 0 && g.GobServer != nil {
-						g.GobServer.NotifySubscribers(views)
+						// Talk to the Gob Agent when a view has been updated
+						// and notify the subscribers
+						if len(views) > 0 && g.GobServer != nil {
+							g.GobServer.NotifySubscribers(views)
+						}
 					}
 
 					// Empty the files that were updated
