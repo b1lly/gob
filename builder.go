@@ -270,7 +270,7 @@ func (g *Gob) Watch() {
 	// The last package to watch is the application package
 	toWatch[len(toWatch)-1] = path.Join(g.Config.SrcDir, g.PackagePath)
 
-	// Watch the packages
+	// Create watchers in each of the packages
 	for i, path := range toWatch {
 		if i < len(toWatch)-1 {
 			err = watcher.Watch(path)
