@@ -1,11 +1,13 @@
 package gob
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"github.com/b1lly/gob/agent"
 	"github.com/howeyc/fsnotify"
 	"go/build"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -30,6 +32,7 @@ type Gob struct {
 	PackagePath string   // The "package" path of the program we're building
 	Binary      string   // The path to the binary file (e.g. output of build)
 	PkgDeps     []string // The 3rd-party dependencies of the package we're building
+	World       []string // All packages described in GobMultiPackage build file
 }
 
 // NewGob returns a new instance of Gob
@@ -46,11 +49,63 @@ func (g *Gob) Print(msg string) {
 	fmt.Println("[gob] " + msg)
 }
 
+func checkIsSource(srcDir, buildDir, path string) ([]string, bool) {
+	var absPath string
+	toReturn := make([]string, 4) // [0]=dir, [1]=filename, [2]=pkgPath [3]=binary
+	// Handle filename and "package" as inputs
+	toReturn[0], toReturn[1] = filepath.Split(path)
+
+	pkgPath := filepath.Join(srcDir, path)
+	if _, err := os.Stat(pkgPath); !os.IsNotExist(err) {
+		// we were passed the package name to build and run
+		toReturn[2] = path
+		absPath = pkgPath
+	} else if strings.Contains(toReturn[1], ".") {
+		toReturn[0], err = filepath.Abs(toReturn[0])
+		if err != nil {
+			fmt.Println("[gob] ", err)
+			return nil, false
+		}
+
+		toReturn[2], err = filepath.Rel(srcDir, toReturn[0])
+		if err != nil {
+			fmt.Println("[gob] ", err)
+			return nil, false
+		}
+
+		absPath = filepath.Join(srcDir, toReturn[2], toReturn[1])
+	} else {
+		toReturn[0], err = filepath.Abs(path)
+		if err != nil {
+			fmt.Println("[gob] ", err)
+			return nil, false
+		}
+
+		toReturn[2], err = filepath.Rel(srcDir, toReturn[0])
+		if err != nil {
+			fmt.Println("[gob] ", err)
+			return nil, false
+		}
+
+		absPath = filepath.Join(srcDir, toReturn[2])
+	}
+
+	// Save our "tmp" binary as the last element of the input
+	toReturn[3] = buildDir + "/" + filepath.Base(toReturn[2])
+
+	// Make sure the file/package we're trying to build exists
+	if _, err := os.Stat(absPath); os.IsNotExist(err) {
+		fmt.Println("[gob] Please provide a valid source file/package to run.")
+		return nil, false
+	}
+
+	return toReturn, true
+}
+
 // IsValidSrc is a simple "input" validation helper
 // that will try to determine the package that a particular path belongs too.
 func (g *Gob) IsValidSrc() bool {
 	var err error
-
 	nonGobArgs := flag.Args()
 
 	// Make sure the user provided enough args to cmd line
@@ -62,62 +117,37 @@ func (g *Gob) IsValidSrc() bool {
 	// Store the users `path/to/src` input
 	g.InputPath = nonGobArgs[0]
 
+	// Check if multi-package build file
+	// currently must just be package def
+	data, err := ioutil.ReadFile(filepath.Join(g.Config.SrcDir, g.InputPath))
+	if err == nil {
+		var packagesToBuild []string
+		err = json.Unmarshal(data, &packagesToBuild)
+		if err == nil {
+			g.World = packagesToBuild
+			// Make sure these are packages
+			badPackages := false
+			for _, pkgName := range g.World {
+				if _, isValidSrc := checkIsSource(g.Config.SrcDir, g.Config.BuildDir, pkgName); !isValidSrc {
+					fmt.Printf("[gob] '%s' is not a valid source file to build\n", pkgName)
+					badPackages = true
+				}
+			}
+			return !badPackages
+		}
+	}
+
 	// Store the users `runtime` flags
 	g.CmdArgs = nonGobArgs[1:]
 
 	// Stores the absolute path of our file or package
 	// Used to check to see if the package/file exists from root
-	var absPath string
-
-	// Handle filename and "package" as inputs
-	g.Dir, g.Filename = filepath.Split(g.InputPath)
-
-	pkgPath := filepath.Join(g.Config.SrcDir, g.InputPath)
-	if _, err = os.Stat(pkgPath); !os.IsNotExist(err) {
-		// we were passed the package name to build and run
-		g.PackagePath = g.InputPath
-		absPath = pkgPath
-	} else if strings.Contains(g.Filename, ".") {
-		g.Dir, err = filepath.Abs(g.Dir)
-		if err != nil {
-			fmt.Println(err)
-			return false
-		}
-
-		g.PackagePath, err = filepath.Rel(g.Config.SrcDir, g.Dir)
-		if err != nil {
-			fmt.Println(err)
-			return false
-		}
-
-		absPath = filepath.Join(g.Config.SrcDir, g.PackagePath, g.Filename)
-	} else {
-		g.Dir, err = filepath.Abs(g.InputPath)
-		if err != nil {
-			fmt.Println(err)
-			return false
-		}
-
-		g.PackagePath, err = filepath.Rel(g.Config.SrcDir, g.Dir)
-		if err != nil {
-			fmt.Println(err)
-			return false
-		}
-
-		absPath = filepath.Join(g.Config.SrcDir, g.PackagePath)
-	}
-
-	// Save our "tmp" binary as the last element of the input
-	g.Binary = g.Config.BuildDir + "/" + filepath.Base(g.Dir)
-
-	// Make sure the file/package we're trying to build exists
-	_, err = os.Stat(absPath)
-	if os.IsNotExist(err) {
-		g.Print("Please provide a valid source file/package to run.")
-		return false
-	}
-
-	return true
+	pkgValues, isValidSrc := checkIsSource(g.Config.SrcDir, g.Config.BuildDir, g.InputPath)
+	g.Dir = pkgValues[0]
+	g.Filename = pkgValues[1]
+	g.PackagePath = pkgValues[2]
+	g.Binary = pkgValues[3]
+	return isValidSrc
 }
 
 // Create a temp directory based on the configuration.
@@ -132,18 +162,28 @@ func (g *Gob) Setup() {
 
 // Build the source and save the binary
 func (g *Gob) Build() bool {
-	cmd := exec.Command("go", "build", "-o", g.Binary, g.PackagePath)
-	cmd.Stdout = g.Config.Stdout
-	cmd.Stderr = g.Config.Stderr
-
-	g.Print("building src... " + g.InputPath)
-	if err := cmd.Run(); err != nil {
-		fmt.Println(err)
-		cmd.Process.Kill()
-		return false
+	var pkgs []string
+	if len(g.World) == 0 {
+		pkgs = []string{g.PackagePath}
+	} else {
+		pkgs = g.World
 	}
+	// keep track of which package build failed
+	buildSucceeded := true
+	for _, pkg := range pkgs {
+		binaryName := filepath.Base(pkg)
+		cmd := exec.Command("go", "build", "-o", filepath.Join(g.Config.BuildDir, binaryName), pkg)
+		cmd.Stdout = g.Config.Stdout
+		cmd.Stderr = g.Config.Stderr
 
-	return true
+		g.Print("building src... " + pkg)
+		if err := cmd.Run(); err != nil {
+			fmt.Println(err)
+			cmd.Process.Kill()
+			buildSucceeded = false
+		}
+	}
+	return buildSucceeded
 }
 
 // Run will attempt to run the binary that was previously compiled by Gob.
@@ -153,24 +193,47 @@ func (g *Gob) Run() {
 		return
 	}
 
-	cmd := exec.Command(g.Binary, g.CmdArgs...)
+	if len(g.World) == 0 {
+		cmd := exec.Command(g.Binary, g.CmdArgs...)
+		cmd.Stdout = g.Config.Stdout
+		cmd.Stderr = g.Config.Stderr
 
-	cmd.Stdout = g.Config.Stdout
-	cmd.Stderr = g.Config.Stderr
-
-	g.Print("starting application...")
-	if err := cmd.Start(); err != nil {
-		fmt.Println(err)
-		cmd.Process.Kill()
-		g.Cmd = nil
+		g.Print("starting application...")
+		if err := cmd.Start(); err != nil {
+			fmt.Println(err)
+			cmd.Process.Kill()
+			g.Cmd = nil
+		} else {
+			g.Cmd = cmd
+		}
 	} else {
-		g.Cmd = cmd
+		for _, pkgName := range g.World {
+			binaryName := filepath.Base(pkgName)
+			cmd := exec.Command(filepath.Join(g.Config.BuildDir, binaryName))
+			cmd.Stdout = g.Config.Stdout
+			cmd.Stderr = g.Config.Stderr
+
+			// pair pkgnames with cmd
+			g.Print("starting " + pkgName + "[" + binaryName + "]...")
+			if err := cmd.Start(); err != nil {
+				fmt.Println(err)
+				cmd.Process.Kill()
+				g.Cmd = nil
+			} else {
+				g.Cmd = cmd
+			}
+		}
 	}
 }
 
 func (g *Gob) GetPkgDeps() {
 	config := build.Default
-	pkgsToCheck := []string{g.PackagePath}
+	var pkgsToCheck []string
+	if len(g.World) == 0 {
+		pkgsToCheck = []string{g.PackagePath}
+	} else {
+		pkgsToCheck = g.World
+	}
 	deps := make(map[string]bool)
 	for i := 0; i < len(pkgsToCheck); i++ {
 		pkg := pkgsToCheck[i]
