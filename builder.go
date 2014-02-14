@@ -46,10 +46,14 @@ func NewGob(gobFlags *GobFlags) *Gob {
 
 // Simple print method to prefix all output with "[gob]"
 func (g *Gob) Print(msg string) {
-	fmt.Println("[gob] " + msg)
+	fmt.Println("[gob]", msg)
 }
 
-func checkIsSource(srcDir, buildDir, path string) ([]string, bool) {
+func (g *Gob) PrintErr(err error) {
+	fmt.Println("[gob]", err)
+}
+
+func (g *Gob) checkIsSource(srcDir, buildDir, path string) ([]string, bool) {
 	var absPath string
 	toReturn := make([]string, 4) // [0]=dir, [1]=filename, [2]=pkgPath [3]=binary
 	// Handle filename and "package" as inputs
@@ -63,13 +67,13 @@ func checkIsSource(srcDir, buildDir, path string) ([]string, bool) {
 	} else if strings.Contains(toReturn[1], ".") {
 		toReturn[0], err = filepath.Abs(toReturn[0])
 		if err != nil {
-			fmt.Println("[gob] ", err)
+			g.PrintErr(err)
 			return nil, false
 		}
 
 		toReturn[2], err = filepath.Rel(srcDir, toReturn[0])
 		if err != nil {
-			fmt.Println("[gob] ", err)
+			g.PrintErr(err)
 			return nil, false
 		}
 
@@ -77,13 +81,13 @@ func checkIsSource(srcDir, buildDir, path string) ([]string, bool) {
 	} else {
 		toReturn[0], err = filepath.Abs(path)
 		if err != nil {
-			fmt.Println("[gob] ", err)
+			g.PrintErr(err)
 			return nil, false
 		}
 
 		toReturn[2], err = filepath.Rel(srcDir, toReturn[0])
 		if err != nil {
-			fmt.Println("[gob] ", err)
+			g.PrintErr(err)
 			return nil, false
 		}
 
@@ -95,7 +99,7 @@ func checkIsSource(srcDir, buildDir, path string) ([]string, bool) {
 
 	// Make sure the file/package we're trying to build exists
 	if _, err := os.Stat(absPath); os.IsNotExist(err) {
-		fmt.Println("[gob] Please provide a valid source file/package to run.")
+		g.Print("Please provide a valid source file/package to run.")
 		return nil, false
 	}
 
@@ -128,7 +132,7 @@ func (g *Gob) IsValidSrc() bool {
 			// Make sure these are packages
 			badPackages := false
 			for _, pkgName := range g.World {
-				if _, isValidSrc := checkIsSource(g.Config.SrcDir, g.Config.BuildDir, pkgName); !isValidSrc {
+				if _, isValidSrc := g.checkIsSource(g.Config.SrcDir, g.Config.BuildDir, pkgName); !isValidSrc {
 					fmt.Printf("[gob] '%s' is not a valid source file to build\n", pkgName)
 					badPackages = true
 				}
@@ -142,7 +146,7 @@ func (g *Gob) IsValidSrc() bool {
 
 	// Stores the absolute path of our file or package
 	// Used to check to see if the package/file exists from root
-	pkgValues, isValidSrc := checkIsSource(g.Config.SrcDir, g.Config.BuildDir, g.InputPath)
+	pkgValues, isValidSrc := g.checkIsSource(g.Config.SrcDir, g.Config.BuildDir, g.InputPath)
 	g.Dir = pkgValues[0]
 	g.Filename = pkgValues[1]
 	g.PackagePath = pkgValues[2]
@@ -153,8 +157,7 @@ func (g *Gob) IsValidSrc() bool {
 // Create a temp directory based on the configuration.
 // This is where all the binaries are stored
 func (g *Gob) Setup() {
-	_, err := os.Stat(g.Config.BuildDir)
-	if os.IsNotExist(err) {
+	if _, err := os.Stat(g.Config.BuildDir); os.IsNotExist(err) {
 		g.Print("creating temporary build directory... " + g.Config.BuildDir)
 		os.MkdirAll(g.Config.BuildDir, 0777)
 	}
@@ -178,7 +181,7 @@ func (g *Gob) Build() bool {
 
 		g.Print("building src... " + pkg)
 		if err := cmd.Run(); err != nil {
-			fmt.Println(err)
+			g.PrintErr(err)
 			cmd.Process.Kill()
 			buildSucceeded = false
 		}
@@ -200,7 +203,7 @@ func (g *Gob) Run() {
 
 		g.Print("starting application...")
 		if err := cmd.Start(); err != nil {
-			fmt.Println(err)
+			g.PrintErr(err)
 			cmd.Process.Kill()
 			g.Cmd = nil
 		} else {
@@ -216,7 +219,7 @@ func (g *Gob) Run() {
 			// pair pkgnames with cmd
 			g.Print("starting " + pkgName + "[" + binaryName + "]...")
 			if err := cmd.Start(); err != nil {
-				fmt.Println(err)
+				g.PrintErr(err)
 				cmd.Process.Kill()
 				g.Cmd = nil
 			} else {
@@ -226,28 +229,44 @@ func (g *Gob) Run() {
 	}
 }
 
+// GetPkgDeps will return all of the dependencies for the root packages
+// that we're building and running
 func (g *Gob) GetPkgDeps() {
 	config := build.Default
 	var pkgsToCheck []string
+
+	// If check if we're building multiple packages or just
+	// one package
 	if len(g.World) == 0 {
 		pkgsToCheck = []string{g.PackagePath}
 	} else {
 		pkgsToCheck = g.World
 	}
+
+	// Contains a list of all the dependencies
 	deps := make(map[string]bool)
+
+	// Iterate through our list of packages and look for dependencies
 	for i := 0; i < len(pkgsToCheck); i++ {
 		pkg := pkgsToCheck[i]
-		p, err := config.Import(pkg, path.Join(config.GOPATH, "src"), build.AllowBinary)
+
+		p, err := config.Import(pkg, g.Config.SrcDir, build.AllowBinary)
 		if err != nil {
-			fmt.Println(err)
+			g.PrintErr(err)
 			return
 		}
+
+		// Iterate through all the dependencies
+		// and filter out GO standard packages
 		for _, dep := range p.Imports {
-			// TODO(ttacon) Smarter filtering of 3rd party packages
-			if ok, _ := deps[dep]; !ok && strings.Contains(dep, ".") {
-				pkgsToCheck = append(pkgsToCheck, dep)
-				deps[dep] = true
-				g.PkgDeps = append(g.PkgDeps, dep)
+			// If the directory exists in GOPATH/src,
+			// we assume that it's not part of the GO standard library
+			if _, err := os.Stat(path.Join(g.Config.SrcDir, dep)); !os.IsNotExist(err) {
+				if ok, _ := deps[dep]; !ok {
+					pkgsToCheck = append(pkgsToCheck, dep)
+					deps[dep] = true
+					g.PkgDeps = append(g.PkgDeps, dep)
+				}
 			}
 		}
 	}
