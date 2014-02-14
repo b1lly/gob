@@ -229,11 +229,33 @@ func (g *Gob) Run() {
 	}
 }
 
+// GetValidPkgRoots returns a list of all the root package
+// paths that are not part of the GO standard library
+func (g *Gob) GetValidPkgRoots() map[string]bool {
+	pkgRoots := make(map[string]bool)
+
+	srcPaths, err := ioutil.ReadDir(g.Config.SrcDir)
+	if err != nil {
+		g.PrintErr(err)
+	}
+
+	for i := 0; i < len(srcPaths); i++ {
+		if srcPaths[i].IsDir() {
+			pkgRoots[srcPaths[i].Name()] = true
+		}
+	}
+
+	return pkgRoots
+}
+
 // GetPkgDeps will return all of the dependencies for the root packages
 // that we're building and running
 func (g *Gob) GetPkgDeps() {
 	config := build.Default
 	var pkgsToCheck []string
+
+	// Used to compare packages against standard GO library
+	validPkgsRoots := g.GetValidPkgRoots()
 
 	// If check if we're building multiple packages or just
 	// one package
@@ -259,10 +281,11 @@ func (g *Gob) GetPkgDeps() {
 		// Iterate through all the dependencies
 		// and filter out GO standard packages
 		for _, dep := range p.Imports {
-			// If the directory exists in GOPATH/src,
-			// we assume that it's not part of the GO standard library
-			if _, err := os.Stat(path.Join(g.Config.SrcDir, dep)); !os.IsNotExist(err) {
-				if ok, _ := deps[dep]; !ok {
+			// Avoid extra work
+			if ok, _ := deps[dep]; !ok {
+				// Grab the base path of the dependency
+				// and match it against our valid package root paths
+				if ok, _ := validPkgsRoots[strings.Split(dep, "/")[0]]; ok {
 					pkgsToCheck = append(pkgsToCheck, dep)
 					deps[dep] = true
 					g.PkgDeps = append(g.PkgDeps, dep)
