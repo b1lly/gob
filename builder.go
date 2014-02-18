@@ -268,6 +268,9 @@ func (g *Gob) GetPkgDeps() {
 	// Contains a list of all the dependencies
 	deps := make(map[string]bool)
 
+	// Local dependencies within the root project
+	var relDeps []string
+
 	// Iterate through our list of packages and look for dependencies
 	for i := 0; i < len(pkgsToCheck); i++ {
 		pkg := pkgsToCheck[i]
@@ -288,10 +291,26 @@ func (g *Gob) GetPkgDeps() {
 				if ok, _ := validPkgsRoots[strings.Split(dep, "/")[0]]; ok {
 					pkgsToCheck = append(pkgsToCheck, dep)
 					deps[dep] = true
+
+					// Returns the app root/project
+					appRoot := strings.Join(strings.Split(g.PackagePath, "/")[0:2], "/")
+
+					// Track app local packages vs third party
+					if filepath.HasPrefix(dep, appRoot) {
+						relDeps = append(relDeps, dep)
+					}
+
 					g.PkgDeps = append(g.PkgDeps, dep)
 				}
 			}
 		}
+	}
+
+	// TODO(billy) Remove when we have FSWatch support
+	// This fixes a "To many open files" issue
+	// and ignores third party deps if there are too many
+	if len(g.PkgDeps) > 10 {
+		g.PkgDeps = relDeps
 	}
 }
 
