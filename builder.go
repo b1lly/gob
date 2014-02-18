@@ -346,8 +346,8 @@ func (g *Gob) Watch() {
 				// until the next update
 				fileChanges[file] = true
 
-				// Avoid excess rebuilds
-				if time.Since(lastUpdate).Seconds() > 1 {
+				// Avoid excess rebuilds (.5 seconds)
+				if time.Since(lastUpdate).Nanoseconds() > 500000000 {
 					lastUpdate = time.Now()
 
 					app, views := g.getChangeType(fileChanges)
