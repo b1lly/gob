@@ -411,11 +411,15 @@ func (g *Gob) Watch() {
 
 				// Ignore hidden directories
 				// and only drop watchers in directories
-				if strings.HasPrefix(filepath.Base(path), ".") || !info.IsDir() {
+				if strings.HasPrefix(filepath.Base(path), ".") {
 					return filepath.SkipDir
 				}
 
-				return watcher.Watch(path)
+				if info.IsDir() {
+					return watcher.Watch(path)
+				}
+
+				return nil
 			}
 
 			filepath.Walk(path, f)
