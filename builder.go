@@ -340,6 +340,8 @@ func (g *Gob) Watch() {
 					break
 				}
 
+				_, file := filepath.Split(ev.Name)
+
 				// Buffer up a bunch of files from our events
 				// until the next update
 				fileChanges[ev.Name] = true
