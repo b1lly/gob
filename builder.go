@@ -340,11 +340,9 @@ func (g *Gob) Watch() {
 					break
 				}
 
-				_, file := filepath.Split(ev.Name)
-
 				// Buffer up a bunch of files from our events
 				// until the next update
-				fileChanges[file] = true
+				fileChanges[ev.Name] = true
 
 				// Avoid excess rebuilds (.5 seconds)
 				if time.Since(lastUpdate).Nanoseconds() > 500000000 {
