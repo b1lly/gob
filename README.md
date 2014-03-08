@@ -16,7 +16,7 @@ the existing process and starts up a new one.
 
 ### Installation
 
-    go get github.com/b1lly/gob
+    go get github.com/b1lly/gob/gob
     
 ### Basic Usage
 
