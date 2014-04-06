@@ -51,3 +51,5 @@ the entire application.
     
 NOTE: We currently only recognize *.soy templates as template files, but will provide
 a way in the future to customize this.
+
+[![Build Status](https://travis-ci.org/b1lly/gob.svg?branch=master)](https://travis-ci.org/b1lly/gob)
