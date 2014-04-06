@@ -44,7 +44,7 @@ func NewGob(gobFlags *GobFlags) *Gob {
 	}
 }
 
-// Simple print method to prefix all output with "[gob]"
+// Print will prefix a string with "[gob]" and then print it
 func (g *Gob) Print(msg string) {
 	fmt.Println("[gob]", msg)
 }
@@ -171,6 +171,7 @@ func (g *Gob) Build() bool {
 	} else {
 		pkgs = g.World
 	}
+
 	// keep track of which package build failed
 	buildSucceeded := true
 	for _, pkg := range pkgs {
@@ -257,8 +258,7 @@ func (g *Gob) GetPkgDeps() {
 	// Used to compare packages against standard GO library
 	validPkgsRoots := g.GetValidPkgRoots()
 
-	// If check if we're building multiple packages or just
-	// one package
+	// Check if we're building multiple packages or just one package
 	if len(g.World) == 0 {
 		pkgsToCheck = []string{g.PackagePath}
 	} else {
