@@ -52,4 +52,11 @@ the entire application.
 NOTE: We currently only recognize *.soy templates as template files, but will provide
 a way in the future to customize this.
 
+### Contributing
+
+Contributions are always welcome but keep the following things in mind:
+* Whether you're submitting a bug fix or a feature enhancement, please file an issue first so we can talk it over and make sure everyone is on the same page.
+* Don't fork `master`, do fork `develop`.
+
+
 [![Build Status](https://travis-ci.org/b1lly/gob.svg?branch=master)](https://travis-ci.org/b1lly/gob)
