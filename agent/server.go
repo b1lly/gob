@@ -34,10 +34,7 @@ func (gs *GobServer) Start() {
 	http.HandleFunc("/subscribe", gs.AddRoute)
 
 	fmt.Printf("[gob] starting up server on port %s\n", gs.Addr)
-	err := http.ListenAndServe(gs.Addr, nil)
-	if err != nil {
-		log.Fatal("ListenAndServ: ", err)
-	}
+	log.Fatal("ListenAndServ: ", http.ListenAndServe(gs.Addr, nil))
 }
 
 // AddRoute will register a particular route with the GobAgent to be
@@ -70,7 +67,6 @@ func (gs *GobServer) AddRoute(w http.ResponseWriter, req *http.Request) {
 func (gs *GobServer) NotifySubscribers(files []string) {
 	// Only do work if we have subscribers
 	if len(gs.SubscriberRoutes) > 0 {
-		client := &http.Client{}
 		// For now, just attempt to make the POST
 		// and ignore all failures
 		fileMap := map[string][]string{
@@ -81,14 +77,13 @@ func (gs *GobServer) NotifySubscribers(files []string) {
 			panic(err)
 		}
 		for _, route := range gs.SubscriberRoutes {
-			//TODO(lt)
-			clientReq, err := http.NewRequest("POST", "http://"+route, bytes.NewReader(data))
+			fmt.Println("[gob] notifying agent on ", route)
+			resp, err := http.Post("http://"+route, "application/json", bytes.NewReader(data))
 			if err != nil {
-				panic(err)
+				fmt.Println("[gob] cannot notify ", route, " because: ", err)
+				continue
 			}
-
-			// TODO(ttacon): check for errors
-			_, _ = client.Do(clientReq)
+			resp.Body.Close()
 		}
 	} else {
 		fmt.Println("[gob] please hook into the gob agent for template rendering...")
