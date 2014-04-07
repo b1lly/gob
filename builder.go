@@ -230,33 +230,11 @@ func (g *Gob) Run() {
 	}
 }
 
-// GetValidPkgRoots returns a list of all the root package
-// paths that are not part of the GO standard library
-func (g *Gob) GetValidPkgRoots() map[string]bool {
-	pkgRoots := make(map[string]bool)
-
-	srcPaths, err := ioutil.ReadDir(g.Config.SrcDir)
-	if err != nil {
-		g.PrintErr(err)
-	}
-
-	for i := 0; i < len(srcPaths); i++ {
-		if srcPaths[i].IsDir() {
-			pkgRoots[srcPaths[i].Name()] = true
-		}
-	}
-
-	return pkgRoots
-}
-
 // GetPkgDeps will return all of the dependencies for the root packages
 // that we're building and running
 func (g *Gob) GetPkgDeps() {
 	config := build.Default
 	var pkgsToCheck []string
-
-	// Used to compare packages against standard GO library
-	validPkgsRoots := g.GetValidPkgRoots()
 
 	// Check if we're building multiple packages or just one package
 	if len(g.World) == 0 {
@@ -288,7 +266,8 @@ func (g *Gob) GetPkgDeps() {
 			if ok, _ := deps[dep]; !ok {
 				// Grab the base path of the dependency
 				// and match it against our valid package root paths
-				if ok, _ := validPkgsRoots[strings.Split(dep, "/")[0]]; ok {
+
+				if _, ok := stdlib[strings.Split(dep, "/")[0]]; !ok {
 					pkgsToCheck = append(pkgsToCheck, dep)
 					deps[dep] = true
 
@@ -305,7 +284,6 @@ func (g *Gob) GetPkgDeps() {
 			}
 		}
 	}
-
 	// TODO(billy) Remove when we have FSWatch support
 	// This fixes a "To many open files" issue
 	// and ignores third party deps if there are too many
