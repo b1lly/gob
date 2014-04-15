@@ -184,6 +184,7 @@ func (g *Gob) Build() bool {
 		if err := cmd.Run(); err != nil {
 			g.PrintErr(err)
 			cmd.Process.Kill()
+			cmd.Process.Wait()
 			buildSucceeded = false
 		}
 	}
@@ -206,6 +207,7 @@ func (g *Gob) Run() {
 		if err := cmd.Start(); err != nil {
 			g.PrintErr(err)
 			cmd.Process.Kill()
+			cmd.Process.Release()
 			g.Cmd = nil
 		} else {
 			g.Cmd = cmd
@@ -222,6 +224,7 @@ func (g *Gob) Run() {
 			if err := cmd.Start(); err != nil {
 				g.PrintErr(err)
 				cmd.Process.Kill()
+				cmd.Process.Wait()
 				g.Cmd = nil
 			} else {
 				g.Cmd = cmd
@@ -338,6 +341,8 @@ func (g *Gob) Watch() {
 							g.Print("restarting application...")
 							if g.Cmd != nil {
 								g.Cmd.Process.Kill()
+								g.Cmd.Process.Wait()
+								g.Cmd.Process.Release()
 							}
 							build := g.Build()
 							if build {
