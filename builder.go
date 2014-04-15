@@ -275,7 +275,7 @@ func (g *Gob) Watch() {
 		var lastUpdate time.Time
 
 		// Used as a buffer to track multiple unique file changes
-		fileChanges := map[string]bool{}
+		var fileChanges []string
 
 		for {
 			select {
@@ -286,17 +286,18 @@ func (g *Gob) Watch() {
 				}
 
 				_, file := filepath.Split(ev.Name)
+				bulkChange := purgeChanges(watcher)
 
 				// Buffer up a bunch of files from our events
 				// until the next update
-				fileChanges[ev.Name] = true
+				fileChanges = append(fileChanges, ev.Name)
+				fileChanges = append(fileChanges, bulkChange...)
 
 				// Avoid excess rebuilds (.5 seconds)
 				if time.Since(lastUpdate).Nanoseconds() > 500000000 {
 					lastUpdate = time.Now()
 
 					app, views := g.getChangeType(fileChanges)
-
 					// Ignore hidden files
 					// TODO(billy) Figure out why this prevents duplicate events
 					if !strings.HasPrefix(file, ".") {
@@ -322,9 +323,7 @@ func (g *Gob) Watch() {
 					}
 
 					// Empty the files that were updated
-					for k := range fileChanges {
-						delete(fileChanges, k)
-					}
+					fileChanges = nil
 				}
 			case err := <-watcher.Error:
 				log.Println("error:", err)
@@ -380,8 +379,8 @@ func (g *Gob) Watch() {
 }
 
 // getChangeType looks at the files that were modified and checks their extension
-func (g *Gob) getChangeType(fileChanges map[string]bool) (app bool, views []string) {
-	for filename := range fileChanges {
+func (g *Gob) getChangeType(fileChanges []string) (app bool, views []string) {
+	for _, filename := range fileChanges {
 		fileExt := filepath.Ext(filename)
 
 		// For now, just hardcode since we only have one of each type
@@ -395,4 +394,22 @@ func (g *Gob) getChangeType(fileChanges map[string]bool) (app bool, views []stri
 	}
 
 	return
+}
+
+func purgeChanges(w *fsnotify.Watcher) []string {
+	var changes []string
+	moreChanges := true
+	for moreChanges {
+		time.Sleep(time.Millisecond * 300)
+		select {
+		case ev := <-w.Event:
+			changes = append(changes, ev.Name)
+		default:
+			// for some reason fsnotify sends multiple events
+			// for the same file but the channel isn't buffered with them?
+			moreChanges = false
+		}
+	}
+
+	return changes
 }
