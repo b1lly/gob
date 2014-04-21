@@ -53,14 +53,14 @@ func main() {
 		// For each directory in the path, create a node and link it
 		// to it's parent and children
 		for path != "" {
-			// The first node is always unique
+			// The first node (full path of import) should always get created
 			if currentNode == nil {
 				currentNode = &Node{
 					Path: path,
 				}
 			} else {
-				// Before creating a new parent node,
-				// check to see if one exists and use it if it does
+				// Before creating a new parent node, check to see if there
+				// is a common ancestor and use it if it exists
 				if nodes[path] == nil {
 					currentNode.setParent(&Node{
 						Path: path,
@@ -69,7 +69,7 @@ func main() {
 					// Change the current node to the newly created item
 					currentNode = currentNode.Parent
 				} else {
-					// Assume the parent links already exist
+					// Assume the common ancestor already has it's node tree setup
 					currentNode.setParent(nodes[path])
 					currentNode = nil
 					break
