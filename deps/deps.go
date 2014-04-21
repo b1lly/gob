@@ -57,11 +57,12 @@ func main() {
 				}
 			} else {
 				// Before creating a new parent node,
-				// check to see if one exists
+				// check to see if one exists and use it if it does
 				if nodes[path] == nil {
 					currentNode.setParent(&Node{
 						Path: path,
 					})
+
 					// Change the current node to the newly created item
 					currentNode = currentNode.Parent
 				} else {
@@ -84,6 +85,8 @@ func main() {
 			}
 		}
 
+		// currentNode will be nil if there was already a common ancestor,
+		// which means the root node already exists
 		if currentNode != nil {
 			rootNode.addChild(currentNode)
 		}
