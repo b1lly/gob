@@ -30,10 +30,10 @@ func (n *Node) addChild(node *Node) {
 func main() {
 	config := build.Default
 
-	// Testing path the package details of the current context
+	// Testing path where the package details/imports exist
 	pkg, _ := config.Import("yext/pages/storepages/storm", "/src/", build.AllowBinary)
 
-	// A map from node string last node of a branch
+	// A map from "full path" string to the node
 	nodes := make(map[string]*Node)
 	imports := pkg.Imports
 
@@ -43,7 +43,7 @@ func main() {
 
 	// Iterate through the packages imports
 	for i := range imports {
-		// The full path of our current import
+		// The full path of our current dependency
 		path := imports[i]
 
 		// Used to keep track when traversing the path
