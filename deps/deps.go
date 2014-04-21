@@ -85,8 +85,8 @@ func main() {
 			}
 		}
 
-		// currentNode will be nil if there was already a common ancestor,
-		// which means the root node already exists
+		// currentNode will be nil if there was already a common ancestor --
+		// which means the root node already exists for that import path
 		if currentNode != nil {
 			rootNode.addChild(currentNode)
 		}
