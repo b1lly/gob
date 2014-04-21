@@ -19,7 +19,6 @@ type Node struct {
 }
 
 func (n *Node) setParent(node *Node) {
-	// Only update the parent if it doesn't exist
 	n.Parent = node
 	node.addChild(n)
 }
