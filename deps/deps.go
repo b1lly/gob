@@ -44,13 +44,16 @@ func main() {
 
 	// Iterate through the packages imports
 	for i := range imports {
-		// Store the full path of our import
+		// The full path of our current import
 		path := imports[i]
+
+		// Used to keep track when traversing the path
+		var currentNode *Node
 
 		// For each directory in the path, create a node and link it
 		// to it's parent and children
 		for path != "" {
-			// Create our starter node
+			// The first node is always unique
 			if currentNode == nil {
 				currentNode = &Node{
 					Path: path,
@@ -66,6 +69,7 @@ func main() {
 					// Change the current node to the newly created item
 					currentNode = currentNode.Parent
 				} else {
+					// Assume the parent links already exist
 					currentNode.setParent(nodes[path])
 					currentNode = nil
 					break
