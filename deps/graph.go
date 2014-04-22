@@ -96,7 +96,7 @@ func NewGraph(d *Graph) *Graph {
 	return &Graph
 }
 
-// ListGraph returns a unique list of dependencies based on the dependency tree
+// ListDeps returns a unique list of dependencies based on the dependency tree
 func (d *Graph) ListDeps() (deps []string) {
 	for n := range d.Nodes {
 		deps = append(deps, d.Nodes[n].Path)
