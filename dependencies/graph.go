@@ -1,4 +1,4 @@
-package main
+package dependencies
 
 import (
 	"fmt"
@@ -7,65 +7,6 @@ import (
 	"strconv"
 	"strings"
 )
-
-// TODO(billy) Remove when done with the interface. This is for testing purposes
-func main() {
-	Graph := NewGraph(&Graph{
-		StdLib: false,
-		SrcDir: "/src/",
-		Pkgs:   []string{"yext/pages/storepages/storm", "yext/pages/storepages/admin"},
-	})
-
-	// Unique list of dependencies
-	list := Graph.ListDeps()
-	for i := range list {
-		fmt.Println(list[i])
-	}
-
-	// Print our graph
-	Graph.RootNode.print("\t")
-}
-
-// TODO(billy) Remove once we make this a real package and not a main
-var stdlib = map[string]struct{}{
-	"archive":   {},
-	"bufio":     {},
-	"bytes":     {},
-	"compress":  {},
-	"container": {},
-	"crypto":    {},
-	"database":  {},
-	"debug":     {},
-	"encoding":  {},
-	"errors":    {},
-	"expvar":    {},
-	"flag":      {},
-	"fmt":       {},
-	"go":        {},
-	"hash":      {},
-	"html":      {},
-	"image":     {},
-	"index":     {},
-	"io":        {},
-	"log":       {},
-	"math":      {},
-	"mime":      {},
-	"net":       {},
-	"os":        {},
-	"path":      {},
-	"reflect":   {},
-	"regexp":    {},
-	"runtime":   {},
-	"sort":      {},
-	"strconv":   {},
-	"strings":   {},
-	"sync":      {},
-	"syscall":   {},
-	"testing":   {},
-	"text":      {},
-	"time":      {},
-	"unicode":   {},
-}
 
 type Graph struct {
 	StdLib bool     // the value 'false' will ignore stdlib imports
@@ -78,8 +19,9 @@ type Graph struct {
 	Nodes    map[string]*Node // map of all the dependencies across all our projects
 }
 
-// NewGraph is used to build out a dependency tree and provides uselful helpers
-// for traversing and figuring based on a list of packages
+// NewGraph is used to build out a dependency tree, and provide useful helpers
+// for traversing and doing analysis. It uses a list of packages, analysis the imports
+// and build the tree.
 func NewGraph(d *Graph) *Graph {
 	Graph := Graph{
 		StdLib: d.StdLib,
@@ -96,10 +38,10 @@ func NewGraph(d *Graph) *Graph {
 	return &Graph
 }
 
-// ListDeps returns a unique list of dependencies based on the dependency tree
-func (d *Graph) ListDeps() (deps []string) {
+// ListNodes returns a unique list of nodes and their path based on the dependency tree
+func (d *Graph) ListNodes() (nodes []string) {
 	for n := range d.Nodes {
-		deps = append(deps, d.Nodes[n].Path)
+		nodes = append(nodes, d.Nodes[n].Path)
 	}
 
 	return
@@ -161,9 +103,6 @@ func (d *Graph) buildTree() {
 
 			// Keep track when traversing the path
 			var currentNode *Node
-
-			// For each directory in the path, create a node and link it
-			// to it's parent and children
 			for path != "" {
 				// The first node (full path of import) should always get created
 				if currentNode == nil {

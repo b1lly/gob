@@ -5,8 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"github.com/b1lly/gob/agent"
+	"github.com/b1lly/gob/dependencies"
 	"github.com/howeyc/fsnotify"
-	"go/build"
 	"io/ioutil"
 	"log"
 	"os"
@@ -236,7 +236,6 @@ func (g *Gob) Run() {
 // GetPkgDeps will return all of the dependencies for the root packages
 // that we're building and running
 func (g *Gob) GetPkgDeps() {
-	config := build.Default
 	var pkgsToCheck []string
 
 	// Check if we're building multiple packages or just one package
@@ -246,53 +245,19 @@ func (g *Gob) GetPkgDeps() {
 		pkgsToCheck = g.World
 	}
 
-	// Contains a list of all the dependencies
-	deps := make(map[string]bool)
+	graph := dependencies.NewGraph(&dependencies.Graph{
+		StdLib: false,
+		SrcDir: g.Config.SrcDir,
+		Pkgs:   pkgsToCheck,
+	})
 
-	// Local dependencies within the root project
-	var relDeps []string
+	filter := dependencies.NewFilter(&dependencies.Filter{
+		Limit: 10,
+		Graph: graph,
+	})
 
-	// Iterate through our list of packages and look for dependencies
-	for i := 0; i < len(pkgsToCheck); i++ {
-		pkg := pkgsToCheck[i]
-
-		p, err := config.Import(pkg, g.Config.SrcDir, build.AllowBinary)
-		if err != nil {
-			g.PrintErr(err)
-			return
-		}
-
-		// Iterate through all the dependencies
-		// and filter out GO standard packages
-		for _, dep := range p.Imports {
-			// Avoid extra work
-			if ok, _ := deps[dep]; !ok {
-				// Grab the base path of the dependency
-				// and match it against our valid package root paths
-
-				if _, ok := stdlib[strings.Split(dep, "/")[0]]; !ok {
-					pkgsToCheck = append(pkgsToCheck, dep)
-					deps[dep] = true
-
-					// Returns the app root/project
-					appRoot := strings.Join(strings.Split(g.PackagePath, "/")[0:2], "/")
-
-					// Track app local packages vs third party
-					if filepath.HasPrefix(dep, appRoot) {
-						relDeps = append(relDeps, dep)
-					}
-
-					g.PkgDeps = append(g.PkgDeps, dep)
-				}
-			}
-		}
-	}
-	// TODO(billy) Remove when we have FSWatch support
-	// This fixes a "To many open files" issue
-	// and ignores third party deps if there are too many
-	if len(g.PkgDeps) > 10 {
-		g.PkgDeps = relDeps
-	}
+	// Unique list of dependencies
+	g.PkgDeps = filter.Graph.ListNodes()
 }
 
 // Watch the filesystem for any changes
@@ -415,7 +380,7 @@ func (g *Gob) Watch() {
 	<-done
 }
 
-// Looks at the files that were modified and checks their extension
+// getChangeType looks at the files that were modified and checks their extension
 func (g *Gob) getChangeType(fileChanges map[string]bool) (app bool, views []string) {
 	for filename := range fileChanges {
 		fileExt := filepath.Ext(filename)
