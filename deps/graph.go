@@ -10,20 +10,20 @@ import (
 
 // TODO(billy) Remove when done with the interface. This is for testing purposes
 func main() {
-	deps := NewDeps(&Deps{
+	Graph := NewGraph(&Graph{
 		StdLib: false,
 		SrcDir: "/src/",
 		Pkgs:   []string{"yext/pages/storepages/storm", "yext/pages/storepages/admin"},
 	})
 
 	// Unique list of dependencies
-	list := deps.ListDeps()
+	list := Graph.ListDeps()
 	for i := range list {
 		fmt.Println(list[i])
 	}
 
 	// Print our graph
-	deps.RootNode.print("\t")
+	Graph.RootNode.print("\t")
 }
 
 // TODO(billy) Remove once we make this a real package and not a main
@@ -67,7 +67,7 @@ var stdlib = map[string]struct{}{
 	"unicode":   {},
 }
 
-type Deps struct {
+type Graph struct {
 	StdLib bool     // the value 'false' will ignore stdlib imports
 	SrcDir string   // the root src directory of all the packages
 	Pkgs   []string // list of packages to use when building our depdendency tree
@@ -78,10 +78,10 @@ type Deps struct {
 	Nodes    map[string]*Node // map of all the dependencies across all our projects
 }
 
-// NewDeps is used to build out a dependency tree and provides uselful helpers
+// NewGraph is used to build out a dependency tree and provides uselful helpers
 // for traversing and figuring based on a list of packages
-func NewDeps(d *Deps) *Deps {
-	deps := Deps{
+func NewGraph(d *Graph) *Graph {
+	Graph := Graph{
 		StdLib: d.StdLib,
 		SrcDir: d.SrcDir,
 		Pkgs:   d.Pkgs,
@@ -92,12 +92,12 @@ func NewDeps(d *Deps) *Deps {
 		Nodes: make(map[string]*Node),
 	}
 
-	deps.buildTree()
-	return &deps
+	Graph.buildTree()
+	return &Graph
 }
 
-// ListDeps returns a unique list of dependencies based on the dependency tree
-func (d *Deps) ListDeps() (deps []string) {
+// ListGraph returns a unique list of dependencies based on the dependency tree
+func (d *Graph) ListDeps() (deps []string) {
 	for n := range d.Nodes {
 		deps = append(deps, d.Nodes[n].Path)
 	}
@@ -135,7 +135,7 @@ func (n *Node) print(prefix string) {
 
 // buildTree iterates through a list of packages to figure out all the unique
 // imports and builds a dependency graph based on what it finds
-func (d *Deps) buildTree() {
+func (d *Graph) buildTree() {
 	config := build.Default
 
 	// For each package, look for the dependencies and build out a tree
