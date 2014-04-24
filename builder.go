@@ -245,19 +245,18 @@ func (g *Gob) GetPkgDeps() {
 		pkgsToCheck = g.World
 	}
 
-	graph := dependencies.NewGraph(&dependencies.Graph{
-		StdLib: false,
-		SrcDir: g.Config.SrcDir,
-		Pkgs:   pkgsToCheck,
-	})
-
+	// Filter down the list of dependencies to 10 based on
+	// some prioritization algorithms
 	filter := dependencies.NewFilter(&dependencies.Filter{
 		Limit: 10,
-		Graph: graph,
+		Graph: dependencies.NewGraph(&dependencies.Graph{
+			StdLib: false,
+			SrcDir: g.Config.SrcDir,
+			Pkgs:   pkgsToCheck,
+		}),
 	})
 
-	// Unique list of dependencies
-	g.PkgDeps = filter.Graph.ListNodes()
+	g.PkgDeps = filter.ListDeps()
 }
 
 // Watch the filesystem for any changes

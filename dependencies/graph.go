@@ -40,8 +40,8 @@ func NewGraph(d *Graph) *Graph {
 
 // ListNodes returns a unique list of nodes and their path based on the dependency tree
 func (d *Graph) ListNodes() (nodes []string) {
-	for n := range d.Nodes {
-		nodes = append(nodes, d.Nodes[n].Path)
+	for _, node := range d.Nodes {
+		nodes = append(nodes, node.Path)
 	}
 
 	return
@@ -49,9 +49,9 @@ func (d *Graph) ListNodes() (nodes []string) {
 
 // ListDeps returns a unique list of all the dependencies based on the graph
 func (d *Graph) ListDeps() (nodes []string) {
-	for n := range d.Nodes {
-		if d.Nodes[n].IsDep {
-			nodes = append(nodes, d.Nodes[n].Path)
+	for _, node := range d.Nodes {
+		if node.IsDep {
+			nodes = append(nodes, node.Path)
 		}
 	}
 
@@ -100,8 +100,6 @@ func (d *Graph) buildTree() {
 		pkg, _ := config.Import(d.Pkgs[p], d.SrcDir, build.AllowBinary)
 		imports := pkg.Imports
 
-		fmt.Println(d.Pkgs[p])
-
 		// Iterate through the imports and build our tree
 		for i := range imports {
 			// The full path of our current import
@@ -123,13 +121,13 @@ func (d *Graph) buildTree() {
 			var currentNode = &Node{
 				Path:      path,
 				IsDep:     true,
-				IsCoreDep: strings.HasPrefix(d.Pkgs[p], path),
+				IsCoreDep: strings.HasPrefix(path, strings.Split(d.Pkgs[p], "/")[0]),
 			}
 
 			// Keep track of the number of dependencies
 			d.TotalDeps++
 
-			// Link our dependency node to it's ancestors
+			// Link our dependency node to its ancestors
 			for path != "" {
 				// Constant time lookup to all of our nodes
 				// based on their full path string

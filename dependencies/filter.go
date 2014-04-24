@@ -1,42 +1,71 @@
 package dependencies
 
-import "strings"
-
 type Filter struct {
-	Limit int
-
+	Limit int // Total number of results to limit to
 	Graph *Graph
-	Deps  []string
 
+	deps     []string
 	toRemove int
 }
 
+// NewFilter will take in a dependency graph and try to first prioritize the
+// dependencies by importance, and create a new list of dependencies based on
+// the limit (total number of deps to watch)
 func NewFilter(f *Filter) *Filter {
 	filter := Filter{
 		Limit:    f.Limit,
 		Graph:    f.Graph,
-		Deps:     f.Graph.ListNodes(),
 		toRemove: f.Graph.TotalDeps - f.Limit,
 	}
 
-	f.Graph.RootNode.print("\t")
-
 	if filter.toRemove > 0 {
-		filter.moveToCommon()
+		filter.prioritize()
+		filter.clean()
 	}
 
 	return &filter
 }
 
-// TODO(billy) make smarter
-func (f *Filter) moveToCommon() {
-	// Find all the nodes with children and also the node with the most children
-	for d := range f.Deps {
-		// The node representation of a particular path
-		node := f.Graph.Nodes[f.Deps[d]]
+// List the dependencies that resulted from the prioritization and clean
+func (f *Filter) ListDeps() []string {
+	var deps []string
+	for _, dep := range f.deps {
+		deps = append(deps, dep)
+	}
+	return deps
+}
 
-		if len(strings.Split(node.Path, "/")) == 2 {
-			delete(f.Graph.Nodes, node.Path)
+func (f *Filter) prioritize() {
+	var priority = struct {
+		high   []string
+		medium []string
+		low    []string
+	}{}
+
+	for _, dep := range f.Graph.ListDeps() {
+		node := f.Graph.Nodes[dep]
+
+		if node.IsCoreDep && node.IsDuplicate {
+			priority.high = append(priority.high, dep)
+		} else if node.IsCoreDep || node.IsDuplicate {
+			priority.medium = append(priority.medium, dep)
+		} else {
+			priority.low = append(priority.low, dep)
+		}
+	}
+
+	f.deps = append(f.deps, priority.high...)
+	f.deps = append(f.deps, priority.medium...)
+	f.deps = append(f.deps, priority.low...)
+}
+
+func (f *Filter) clean() {
+	for i := len(f.deps); i >= 0; i-- {
+		if f.toRemove > 0 {
+			f.deps = f.deps[:len(f.deps)-1]
+			f.toRemove--
+		} else {
+			return
 		}
 	}
 }
