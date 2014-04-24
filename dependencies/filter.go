@@ -26,7 +26,7 @@ func NewFilter(f *Filter) *Filter {
 	return &filter
 }
 
-// List the dependencies that resulted from the prioritization and clean
+// ListDeps the dependencies that resulted from the prioritization and clean
 func (f *Filter) ListDeps() []string {
 	var deps []string
 	for _, dep := range f.deps {
