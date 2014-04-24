@@ -19,6 +19,8 @@ func NewFilter(f *Filter) *Filter {
 		toRemove: f.Graph.TotalDeps - f.Limit,
 	}
 
+	f.Graph.RootNode.print("\t")
+
 	if filter.toRemove > 0 {
 		filter.moveToCommon()
 	}

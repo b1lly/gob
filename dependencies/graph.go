@@ -47,14 +47,29 @@ func (d *Graph) ListNodes() (nodes []string) {
 	return
 }
 
+// ListDeps returns a unique list of all the dependencies based on the graph
+func (d *Graph) ListDeps() (nodes []string) {
+	for n := range d.Nodes {
+		if d.Nodes[n].IsDep {
+			nodes = append(nodes, d.Nodes[n].Path)
+		}
+	}
+
+	return
+}
+
 // Node contains a data for a given dependency and it's relationship to others.
 // It also contains some extra helpful data for traversing
 type Node struct {
-	Parent   *Node
-	Children []*Node
-
-	Path          string
+	Parent        *Node
+	Children      []*Node
 	TotalChildren int
+
+	Path string
+
+	IsDep       bool // "true" means this node contains a dependency
+	IsCoreDep   bool // "true" means that this node stems from the pkg that is importing it
+	IsDuplicate bool // "true" means the dependency is used more then once
 }
 
 func (n *Node) addParent(node *Node) {
@@ -85,6 +100,8 @@ func (d *Graph) buildTree() {
 		pkg, _ := config.Import(d.Pkgs[p], d.SrcDir, build.AllowBinary)
 		imports := pkg.Imports
 
+		fmt.Println(d.Pkgs[p])
+
 		// Iterate through the imports and build our tree
 		for i := range imports {
 			// The full path of our current import
@@ -93,6 +110,7 @@ func (d *Graph) buildTree() {
 			// When dealing with multiple packages, we can't assume that imports
 			// are unique. Thus the nodes may already exist and we shouldn't do any work
 			if d.Nodes[path] != nil {
+				d.Nodes[path].IsDuplicate = true
 				continue
 			}
 
@@ -102,16 +120,31 @@ func (d *Graph) buildTree() {
 			}
 
 			// Keep track when traversing the path
-			var currentNode *Node
+			var currentNode = &Node{
+				Path:      path,
+				IsDep:     true,
+				IsCoreDep: strings.HasPrefix(d.Pkgs[p], path),
+			}
+
+			// Keep track of the number of dependencies
+			d.TotalDeps++
+
+			// Link our dependency node to it's ancestors
 			for path != "" {
-				// The first node (full path of import) should always get created
-				if currentNode == nil {
-					currentNode = &Node{
-						Path: path,
+				// Constant time lookup to all of our nodes
+				// based on their full path string
+				d.Nodes[path] = currentNode
+
+				// Keep popping off the tip of the path
+				path, _ = filepath.Split(path)
+
+				if len(path) > 0 {
+					// Trailing slash in file path causes issues, remove it
+					if strings.HasSuffix(path, "/") {
+						path = path[:len(path)-1]
 					}
-				} else {
-					// Before creating a new parent node, check to see if there
-					// is a common ancestor and use it if it exists
+
+					// Create nodes for all directory paths if they don't exist
 					if d.Nodes[path] == nil {
 						currentNode.addParent(&Node{
 							Path: path,
@@ -120,27 +153,13 @@ func (d *Graph) buildTree() {
 						// Change the current node to the newly created item
 						currentNode = currentNode.Parent
 					} else {
-						// Assume the common ancestor already has it's node tree setup
+						// Otherwise, assume the common ancestor already has it's tree built
 						currentNode.addParent(d.Nodes[path])
 						currentNode = nil
 						break
 					}
 				}
 
-				// Keep track of the number of dependencies
-				d.TotalDeps++
-
-				// Constant time lookup to all of our nodes
-				// based on their full path string
-				d.Nodes[path] = currentNode
-
-				// Keep popping off the tip of the path
-				path, _ = filepath.Split(path)
-
-				// Trailing slash in file path causes issues, remove it
-				if strings.HasSuffix(path, "/") {
-					path = path[:len(path)-1]
-				}
 			}
 
 			// currentNode will be nil if there was already a common ancestor --
