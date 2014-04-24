@@ -9,8 +9,8 @@ type Filter struct {
 }
 
 // NewFilter will take in a dependency graph and try to first prioritize the
-// dependencies by importance, and create a new list of dependencies based on
-// the limit (total number of deps to watch)
+// dependencies by importance. It creates a new result set of dependencies based
+// on the constraints of the filter and the priority of the dependency.
 func NewFilter(f *Filter) *Filter {
 	filter := Filter{
 		Limit:    f.Limit,
