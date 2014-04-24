@@ -38,6 +38,7 @@ type Gob struct {
 // NewGob returns a new instance of Gob
 // with the configuration settings applied
 func NewGob(gobFlags *GobFlags) *Gob {
+	initNotifications()
 	return &Gob{
 		Config:     DefaultConfig(),
 		FlagConfig: gobFlags,
@@ -147,10 +148,12 @@ func (g *Gob) IsValidSrc() bool {
 	// Stores the absolute path of our file or package
 	// Used to check to see if the package/file exists from root
 	pkgValues, isValidSrc := g.checkIsSource(g.Config.SrcDir, g.Config.BuildDir, g.InputPath)
-	g.Dir = pkgValues[0]
-	g.Filename = pkgValues[1]
-	g.PackagePath = pkgValues[2]
-	g.Binary = pkgValues[3]
+	if isValidSrc {
+		g.Dir = pkgValues[0]
+		g.Filename = pkgValues[1]
+		g.PackagePath = pkgValues[2]
+		g.Binary = pkgValues[3]
+	}
 	return isValidSrc
 }
 
@@ -182,10 +185,14 @@ func (g *Gob) Build() bool {
 
 		g.Print("building src... " + pkg)
 		if err := cmd.Run(); err != nil {
+			// TODO(ttacon): bulkify notifications
+			notifyFailed()
 			g.PrintErr(err)
 			cmd.Process.Kill()
 			cmd.Process.Wait()
 			buildSucceeded = false
+		} else {
+			notifyFixed()
 		}
 	}
 	return buildSucceeded
@@ -205,11 +212,15 @@ func (g *Gob) Run() {
 
 		g.Print("starting application...")
 		if err := cmd.Start(); err != nil {
+			notifyFailed()
 			g.PrintErr(err)
 			cmd.Process.Kill()
 			cmd.Process.Release()
 			g.Cmd = nil
 		} else {
+			// TODO(ttacon): keep track of state so we actually know
+			// when it's fixed vs just not failing
+			notifyFixed()
 			g.Cmd = cmd
 		}
 	} else {
@@ -222,11 +233,14 @@ func (g *Gob) Run() {
 			// pair pkgnames with cmd
 			g.Print("starting " + pkgName + "[" + binaryName + "]...")
 			if err := cmd.Start(); err != nil {
+				// TODO(ttacon): bulkify notifications when "running the world"
+				notifyFailed()
 				g.PrintErr(err)
 				cmd.Process.Kill()
 				cmd.Process.Wait()
 				g.Cmd = nil
 			} else {
+				notifyFixed()
 				g.Cmd = cmd
 			}
 		}
