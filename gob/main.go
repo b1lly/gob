@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+
 	"github.com/b1lly/gob"
 	"github.com/b1lly/gob/agent"
 )
@@ -71,6 +72,9 @@ func main() {
 	if build {
 		gb.Run()
 	}
+
+	// listen for os x notifications
+	go gob.ListenForNotifications()
 
 	// Start watching the filesystem for updates
 	gb.Watch()

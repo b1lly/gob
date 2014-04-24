@@ -4,9 +4,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/b1lly/gob/agent"
-	"github.com/b1lly/gob/dependencies"
-	"github.com/howeyc/fsnotify"
 	"io/ioutil"
 	"log"
 	"os"
@@ -15,6 +12,10 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/b1lly/gob/agent"
+	"github.com/b1lly/gob/dependencies"
+	"github.com/howeyc/fsnotify"
 )
 
 type Gob struct {
