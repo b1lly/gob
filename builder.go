@@ -39,10 +39,12 @@ type Gob struct {
 // with the configuration settings applied
 func NewGob(gobFlags *GobFlags) *Gob {
 	initNotifications()
-	return &Gob{
+	g := &Gob{
 		Config:     DefaultConfig(),
 		FlagConfig: gobFlags,
 	}
+	registerSignalHandlers(g)
+	return g
 }
 
 // Print will prefix a string with "[gob]" and then print it
@@ -426,4 +428,17 @@ func purgeChanges(w *fsnotify.Watcher) []string {
 	}
 
 	return changes
+}
+
+func (g *Gob) restartApp() {
+	g.Print("restarting application...")
+	if g.Cmd != nil {
+		g.Cmd.Process.Kill()
+		g.Cmd.Process.Wait()
+		g.Cmd.Process.Release()
+	}
+	build := g.Build()
+	if build {
+		g.Run()
+	}
 }
