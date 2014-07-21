@@ -6,6 +6,10 @@ import (
 	"github.com/b1lly/gob/agent"
 )
 
+const (
+	VERSION_INFO = "version pre-0.0.1"
+)
+
 var (
 	// Normal gob flags
 	noRunMode            = flag.Bool("norun", false, "hot compile code and build it, but don't run it")
@@ -14,6 +18,7 @@ var (
 	watchDeps            = flag.Bool("deps", false, "watch dependencies of your package for changes")
 	depInterval          = flag.Int("intvl", 1, "time between dependency checks")
 	recursivelyWatchDeps = flag.Bool("recWatch", true, "recursively watch dependencies")
+	version              = flag.Bool("version", false, "print gob's version and exit")
 
 	// flags pertaining to gob config file usage
 	useConfig  = flag.Bool("useConfig", true, "use gob config file if it exists")
@@ -33,6 +38,11 @@ func main() {
 		DependencyCheckInterval:      *depInterval,
 		RecursivelyWatchDependencies: *recursivelyWatchDeps,
 	})
+
+	if *version {
+		gb.Print(VERSION_INFO)
+		return
+	}
 
 	if !gb.IsValidSrc() {
 		return
