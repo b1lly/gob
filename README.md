@@ -60,3 +60,5 @@ Contributions are always welcome but keep the following things in mind:
 
 
 [![Build Status](https://travis-ci.org/b1lly/gob.svg?branch=master)](https://travis-ci.org/b1lly/gob)
+
+[![Coverage Status](https://coveralls.io/repos/b1lly/gob/badge.png)](https://coveralls.io/r/b1lly/gob)
