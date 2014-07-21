@@ -20,7 +20,14 @@ func registerSignalHandlers(g *Gob) {
 				g.Print("\r[gob] exiting...")
 				os.Exit(0)
 			case <-c:
-				g.restartApp()
+				select {
+				case <-time.After(time.Millisecond * 300):
+					g.restartApp()
+				case <-c:
+					// TODO(ttacon): ensure we kill child process
+					g.Print("\r[gob] exiting...")
+					os.Exit(0)
+				}
 			}
 		}
 	}()
