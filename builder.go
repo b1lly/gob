@@ -43,6 +43,7 @@ func NewGob(gobFlags *GobFlags) *Gob {
 		Config:     DefaultConfig(),
 		FlagConfig: gobFlags,
 	}
+	registerSignalHandlers(g)
 	return g
 }
 
